@@ -305,3 +305,64 @@ export async function downloadVoucherPdfBytes(folio: number, idAirport: number):
   });
   return response.data;
 }
+
+export interface ExistingPaxDTO {
+  id: number;
+  name: string;
+  voucher: string;
+  date_out: string;
+  hour: string;
+  type: PaxType;
+  id_hotel: number;
+  hotel_name: string;
+  age_c: number;
+  age_i: number;
+  chek: 0 | 1 | 2;
+  ocupation: string;
+  breakfast: number;
+  lunch: number;
+  dinner: number;
+}
+
+export interface PaxListResponse {
+  ok: boolean;
+  items?: ExistingPaxDTO[];
+  error?: string;
+}
+
+export async function getOrderPax(idOrder: number, idAirport: number): Promise<PaxListResponse> {
+  const { data } = await api.get<PaxListResponse>('/orders/pax.php', {
+    params: { id_order: idOrder, id_airport: idAirport },
+  });
+  return data;
+}
+
+export interface UpdatePaxPayload {
+  id_pax: number;
+  id_order: number;
+  id_airport: number;
+  name: string;
+  voucher?: string;
+  f_salida: string;
+  hora: string;
+  type: PaxType;
+  id_hotel: number;
+  chek?: 0 | 1 | 2;
+  age_c?: number;
+  age_i?: number;
+  ocupation?: string;
+  breakfast?: number;
+  lunch?: number;
+  dinner?: number;
+}
+
+export interface UpdatePaxResponse {
+  ok: boolean;
+  msg?: string;
+  error?: string;
+}
+
+export async function updatePax(payload: UpdatePaxPayload): Promise<UpdatePaxResponse> {
+  const { data } = await api.post<UpdatePaxResponse>('/orders/updatePax.php', payload);
+  return data;
+}

@@ -164,6 +164,14 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
       onPress: () => navigation.navigate('AddPax', { folio, idAirport, folioDisplay, iata, typeAirline }),
     },
     {
+      key: 'pax-edit',
+      label: 'Editar Pax',
+      sub: 'Buscar y editar un pasajero',
+      icon: 'create-outline',
+      color: '#2563eb',
+      onPress: () => navigation.navigate('EditPaxList', { folio, idAirport, folioDisplay, iata, typeAirline }),
+    },
+    {
       key: 'transp-in',
       label: 'Transp. Llegada',
       sub: 'Agregar transporte',
