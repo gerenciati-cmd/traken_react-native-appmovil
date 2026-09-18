@@ -71,18 +71,20 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
     {
       key: 'transp-in',
       label: 'Transp. Llegada',
-      sub: 'Agregar o editar',
+      sub: 'Agregar transporte',
       icon: 'car-outline',
       color: '#0891b2',
-      onPress: goComingSoon('Transporte de Llegada', 'car-outline'),
+      onPress: () =>
+        navigation.navigate('AddTransport', { folio, idAirport, folioDisplay, iata, typeAirline, direction: 'in' }),
     },
     {
       key: 'transp-out',
       label: 'Transp. Salida',
-      sub: 'Agregar o editar',
+      sub: 'Agregar transporte',
       icon: 'car-sport-outline',
       color: '#0891b2',
-      onPress: goComingSoon('Transporte de Salida', 'car-sport-outline'),
+      onPress: () =>
+        navigation.navigate('AddTransport', { folio, idAirport, folioDisplay, iata, typeAirline, direction: 'out' }),
     },
     {
       key: 'email',

@@ -22,12 +22,46 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddPax'>;
 
+type PassengerForm = {
+  name: string;
+  voucher: string;
+  type: PaxType;
+  ageC: number;
+  ageI: number;
+  chek: 0 | 1 | 2;
+  fSalida: string;
+  hora: string;
+  breakfast: number;
+  lunch: number;
+  dinner: number;
+};
+
+function makePassenger(fSalida: string, hora: string): PassengerForm {
+  return {
+    name: '',
+    voucher: '',
+    type: 'adulto',
+    ageC: 2,
+    ageI: 0,
+    chek: 0,
+    fSalida,
+    hora,
+    breakfast: 0,
+    lunch: 0,
+    dinner: 0,
+  };
+}
+
 /**
- * Equivalente movil de op/modulos/open/add.php + insertDetailOrder.php:
- * agrega UN pasajero (con su habitacion) a la O.S. Mismo criterio de
- * campos condicionales que la web (ocupacion, comidas segun type_airline),
- * pero con selectores tipo "chip" en vez de <select> nativo -- mas comodo
- * en celular y consistente con el resto de la app.
+ * Equivalente movil de op/modulos/open/add.php + insertDetailOrder.php.
+ *
+ * OJO -- esto es UNA habitacion (1 hotel + 1 ocupacion), que puede traer
+ * VARIOS pasajeros dentro (ej. una familia): igual que en la web, se
+ * guarda 1 sola fila en orders_open y se resta 1 SOLO cuarto disponible,
+ * sin importar cuantos pasajeros se agreguen con el boton "+ Agregar
+ * pasajero a este cuarto" de abajo. Un pasajero por cuarto sigue
+ * funcionando igual, solo que ahora ya no obliga a gastar un cuarto
+ * completo por cada persona cuando comparten habitacion.
  */
 export default function AddPaxScreen({ route, navigation }: Props) {
   const { folio, idAirport, folioDisplay, iata, typeAirline } = route.params;
@@ -42,17 +76,9 @@ export default function AddPaxScreen({ route, navigation }: Props) {
 
   const [idHotel, setIdHotel] = useState<number | null>(null);
   const [ocupation, setOcupation] = useState('');
-  const [name, setName] = useState('');
-  const [voucher, setVoucher] = useState('');
-  const [fSalida, setFSalida] = useState('');
-  const [hora, setHora] = useState('');
-  const [chek, setChek] = useState<0 | 1 | 2>(0);
-  const [type, setType] = useState<PaxType>('adulto');
-  const [ageC, setAgeC] = useState(2);
-  const [ageI, setAgeI] = useState(0);
-  const [breakfast, setBreakfast] = useState(0);
-  const [lunch, setLunch] = useState(0);
-  const [dinner, setDinner] = useState(0);
+  const [defaultFSalida, setDefaultFSalida] = useState('');
+  const [defaultHora, setDefaultHora] = useState('');
+  const [passengers, setPassengers] = useState<PassengerForm[]>([makePassenger('', '')]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -63,8 +89,11 @@ export default function AddPaxScreen({ route, navigation }: Props) {
         const list = (res.hotels ?? []).filter((h) => h.rooms_dis !== 0);
         setHotels(list);
         if (list.length === 1) setIdHotel(list[0].id);
-        if (res.default_date_out) setFSalida(res.default_date_out.slice(0, 10));
-        if (res.default_hour) setHora(res.default_hour.slice(0, 5));
+        const fs = res.default_date_out ? res.default_date_out.slice(0, 10) : '';
+        const hr = res.default_hour ? res.default_hour.slice(0, 5) : '';
+        setDefaultFSalida(fs);
+        setDefaultHora(hr);
+        setPassengers([makePassenger(fs, hr)]);
       } else {
         setLoadError(res.error ?? 'No se pudo cargar la disponibilidad.');
       }
@@ -79,19 +108,23 @@ export default function AddPaxScreen({ route, navigation }: Props) {
     load();
   }, [load]);
 
-  const resetPaxFields = () => {
-    setName('');
-    setVoucher('');
-    setChek(0);
-    setType('adulto');
-    setAgeC(2);
-    setAgeI(0);
-    setBreakfast(0);
-    setLunch(0);
-    setDinner(0);
+  const updatePassenger = (index: number, patch: Partial<PassengerForm>) => {
+    setPassengers((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   };
 
-  const canSubmit = !!idHotel && name.trim().length > 0 && fSalida.trim().length > 0 && hora.trim().length > 0 && !isSaving;
+  const addPassenger = () => {
+    setPassengers((prev) => [...prev, makePassenger(defaultFSalida, defaultHora)]);
+  };
+
+  const removePassenger = (index: number) => {
+    setPassengers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const canSubmit =
+    !!idHotel &&
+    passengers.length > 0 &&
+    passengers.every((p) => p.name.trim().length > 0 && p.fSalida.trim().length > 0 && p.hora.trim().length > 0) &&
+    !isSaving;
 
   const handleSubmit = async () => {
     if (!canSubmit || !idHotel) return;
@@ -103,17 +136,19 @@ export default function AddPaxScreen({ route, navigation }: Props) {
         id_hotel: idHotel,
         type_airline: typeAirline,
         ocupation: showOcupation ? ocupation : undefined,
-        name: name.trim(),
-        voucher: voucher.trim(),
-        f_salida: fSalida.trim(),
-        hora: hora.trim(),
-        type,
-        chek,
-        age_c: type === 'nino' ? ageC : 0,
-        age_i: type === 'infante' ? ageI : 0,
-        breakfast: showMeals ? breakfast : 0,
-        lunch: showMeals ? lunch : 0,
-        dinner: showMeals ? dinner : 0,
+        passengers: passengers.map((p) => ({
+          name: p.name.trim(),
+          voucher: p.voucher.trim(),
+          f_salida: p.fSalida.trim(),
+          hora: p.hora.trim(),
+          type: p.type,
+          chek: p.chek,
+          age_c: p.type === 'nino' ? p.ageC : 0,
+          age_i: p.type === 'infante' ? p.ageI : 0,
+          breakfast: showMeals ? p.breakfast : 0,
+          lunch: showMeals ? p.lunch : 0,
+          dinner: showMeals ? p.dinner : 0,
+        })),
       });
 
       if (res.status === 'dispo') {
@@ -126,12 +161,13 @@ export default function AddPaxScreen({ route, navigation }: Props) {
         return;
       }
 
-      Alert.alert('Pasajero agregado', '¿Quieres agregar otro pasajero a esta O.S.?', [
+      Alert.alert('Habitación agregada', '¿Quieres agregar otra habitación a esta O.S.?', [
         { text: 'Terminar', style: 'cancel', onPress: () => navigation.navigate('OpenOrders') },
         {
-          text: 'Agregar otro',
+          text: 'Agregar otra',
           onPress: () => {
-            resetPaxFields();
+            setOcupation('');
+            setPassengers([makePassenger(defaultFSalida, defaultHora)]);
             load();
           },
         },
@@ -152,7 +188,7 @@ export default function AddPaxScreen({ route, navigation }: Props) {
             <Ionicons name="arrow-back" size={20} color={colors.white} />
           </Pressable>
           <View>
-            <Text style={styles.topTitle}>Agregar Pasajero</Text>
+            <Text style={styles.topTitle}>Agregar Habitación</Text>
             <Text style={styles.topSub}>#{folioDisplay}{iata ? ' · ' + iata : ''}</Text>
           </View>
           <View style={styles.backBtn} />
@@ -189,7 +225,7 @@ export default function AddPaxScreen({ route, navigation }: Props) {
 
               {showOcupation && (
                 <>
-                  <FieldLabel text="Ocupación" />
+                  <FieldLabel text="Ocupación (de la habitación)" />
                   <ChipRow>
                     {['SGL', 'DBL', 'TPL', 'CDPL'].map((op) => (
                       <Chip key={op} label={op} active={ocupation === op} onPress={() => setOcupation(op)} />
@@ -198,104 +234,155 @@ export default function AddPaxScreen({ route, navigation }: Props) {
                 </>
               )}
 
-              <FieldLabel text="Nombre completo" />
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Nombre completo del pasajero"
-                placeholderTextColor={colors.placeholder}
-                style={styles.input}
-                autoCapitalize="words"
-              />
+              <View style={styles.divider} />
+              <Text style={styles.sectionTitle}>
+                Pasajeros en esta habitación ({passengers.length})
+              </Text>
 
-              <FieldLabel text="Voucher (opcional)" />
-              <TextInput
-                value={voucher}
-                onChangeText={setVoucher}
-                placeholder="Número de voucher"
-                placeholderTextColor={colors.placeholder}
-                style={styles.input}
-                autoCapitalize="characters"
-              />
+              {passengers.map((p, index) => (
+                <PassengerCard
+                  key={index}
+                  index={index}
+                  passenger={p}
+                  showMeals={showMeals}
+                  canRemove={passengers.length > 1}
+                  onChange={(patch) => updatePassenger(index, patch)}
+                  onRemove={() => removePassenger(index)}
+                />
+              ))}
 
-              <FieldLabel text="Early / Late (opcional)" />
-              <ChipRow>
-                <Chip label="Ninguno" active={chek === 0} onPress={() => setChek(0)} />
-                <Chip label="Early Check-In" active={chek === 1} onPress={() => setChek(1)} />
-                <Chip label="Late Check-Out" active={chek === 2} onPress={() => setChek(2)} />
-              </ChipRow>
-
-              <View style={styles.row2}>
-                <View style={styles.row2Item}>
-                  <FieldLabel text="Fecha salida" />
-                  <TextInput
-                    value={fSalida}
-                    onChangeText={setFSalida}
-                    placeholder="AAAA-MM-DD"
-                    placeholderTextColor={colors.placeholder}
-                    style={styles.input}
-                  />
-                </View>
-                <View style={styles.row2Item}>
-                  <FieldLabel text="Hora salida" />
-                  <TextInput
-                    value={hora}
-                    onChangeText={setHora}
-                    placeholder="HH:MM"
-                    placeholderTextColor={colors.placeholder}
-                    style={styles.input}
-                  />
-                </View>
-              </View>
-
-              <FieldLabel text="Tipo de pasajero" />
-              <ChipRow>
-                <Chip label="Adulto" active={type === 'adulto'} onPress={() => setType('adulto')} />
-                <Chip label="Niño" active={type === 'nino'} onPress={() => setType('nino')} />
-                <Chip label="Infante" active={type === 'infante'} onPress={() => setType('infante')} />
-              </ChipRow>
-
-              {type === 'nino' && (
-                <>
-                  <FieldLabel text="Edad del niño" />
-                  <ChipRow>
-                    {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
-                      <Chip key={n} label={String(n)} active={ageC === n} onPress={() => setAgeC(n)} />
-                    ))}
-                  </ChipRow>
-                </>
-              )}
-              {type === 'infante' && (
-                <>
-                  <FieldLabel text="Edad del infante" />
-                  <ChipRow>
-                    <Chip label="0 años" active={ageI === 0} onPress={() => setAgeI(0)} />
-                    <Chip label="1 año" active={ageI === 1} onPress={() => setAgeI(1)} />
-                  </ChipRow>
-                </>
-              )}
-
-              {showMeals && (
-                <>
-                  <FieldLabel text="Comidas (número de veces)" />
-                  <MealCounter label="Desayuno" value={breakfast} onChange={setBreakfast} />
-                  <MealCounter label="Comida" value={lunch} onChange={setLunch} />
-                  <MealCounter label="Cena" value={dinner} onChange={setDinner} />
-                </>
-              )}
+              <Pressable style={styles.addPassengerBtn} onPress={addPassenger}>
+                <Ionicons name="add-circle-outline" size={18} color={colors.teal} />
+                <Text style={styles.addPassengerText}>Agregar pasajero a este cuarto</Text>
+              </Pressable>
 
               <Pressable
                 style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}
                 onPress={handleSubmit}
                 disabled={!canSubmit}
               >
-                <Text style={styles.submitText}>{isSaving ? 'Guardando...' : 'Guardar Pasajero'}</Text>
+                <Text style={styles.submitText}>{isSaving ? 'Guardando...' : 'Guardar Habitación'}</Text>
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
         )}
       </SafeAreaView>
     </LinearGradient>
+  );
+}
+
+function PassengerCard({
+  index,
+  passenger,
+  showMeals,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  passenger: PassengerForm;
+  showMeals: boolean;
+  canRemove: boolean;
+  onChange: (patch: Partial<PassengerForm>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <View style={[styles.paxCard, shadow.card]}>
+      <View style={styles.paxCardHead}>
+        <Text style={styles.paxCardTitle}>Pasajero {index + 1}</Text>
+        {canRemove && (
+          <Pressable onPress={onRemove} hitSlop={8}>
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+          </Pressable>
+        )}
+      </View>
+
+      <FieldLabel text="Nombre completo" />
+      <TextInput
+        value={passenger.name}
+        onChangeText={(t) => onChange({ name: t })}
+        placeholder="Nombre completo del pasajero"
+        placeholderTextColor={colors.placeholder}
+        style={styles.input}
+        autoCapitalize="words"
+      />
+
+      <FieldLabel text="Voucher (opcional)" />
+      <TextInput
+        value={passenger.voucher}
+        onChangeText={(t) => onChange({ voucher: t })}
+        placeholder="Número de voucher"
+        placeholderTextColor={colors.placeholder}
+        style={styles.input}
+        autoCapitalize="characters"
+      />
+
+      <FieldLabel text="Early / Late (opcional)" />
+      <ChipRow>
+        <Chip label="Ninguno" active={passenger.chek === 0} onPress={() => onChange({ chek: 0 })} />
+        <Chip label="Early Check-In" active={passenger.chek === 1} onPress={() => onChange({ chek: 1 })} />
+        <Chip label="Late Check-Out" active={passenger.chek === 2} onPress={() => onChange({ chek: 2 })} />
+      </ChipRow>
+
+      <View style={styles.row2}>
+        <View style={styles.row2Item}>
+          <FieldLabel text="Fecha salida" />
+          <TextInput
+            value={passenger.fSalida}
+            onChangeText={(t) => onChange({ fSalida: t })}
+            placeholder="AAAA-MM-DD"
+            placeholderTextColor={colors.placeholder}
+            style={styles.input}
+          />
+        </View>
+        <View style={styles.row2Item}>
+          <FieldLabel text="Hora salida" />
+          <TextInput
+            value={passenger.hora}
+            onChangeText={(t) => onChange({ hora: t })}
+            placeholder="HH:MM"
+            placeholderTextColor={colors.placeholder}
+            style={styles.input}
+          />
+        </View>
+      </View>
+
+      <FieldLabel text="Tipo de pasajero" />
+      <ChipRow>
+        <Chip label="Adulto" active={passenger.type === 'adulto'} onPress={() => onChange({ type: 'adulto' })} />
+        <Chip label="Niño" active={passenger.type === 'nino'} onPress={() => onChange({ type: 'nino' })} />
+        <Chip label="Infante" active={passenger.type === 'infante'} onPress={() => onChange({ type: 'infante' })} />
+      </ChipRow>
+
+      {passenger.type === 'nino' && (
+        <>
+          <FieldLabel text="Edad del niño" />
+          <ChipRow>
+            {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
+              <Chip key={n} label={String(n)} active={passenger.ageC === n} onPress={() => onChange({ ageC: n })} />
+            ))}
+          </ChipRow>
+        </>
+      )}
+      {passenger.type === 'infante' && (
+        <>
+          <FieldLabel text="Edad del infante" />
+          <ChipRow>
+            <Chip label="0 años" active={passenger.ageI === 0} onPress={() => onChange({ ageI: 0 })} />
+            <Chip label="1 año" active={passenger.ageI === 1} onPress={() => onChange({ ageI: 1 })} />
+          </ChipRow>
+        </>
+      )}
+
+      {showMeals && (
+        <>
+          <FieldLabel text="Comidas (número de veces)" />
+          <MealCounter label="Desayuno" value={passenger.breakfast} onChange={(n) => onChange({ breakfast: n })} />
+          <MealCounter label="Comida" value={passenger.lunch} onChange={(n) => onChange({ lunch: n })} />
+          <MealCounter label="Cena" value={passenger.dinner} onChange={(n) => onChange({ dinner: n })} />
+        </>
+      )}
+    </View>
   );
 }
 
@@ -351,13 +438,43 @@ const styles = StyleSheet.create({
   retryBtn: { backgroundColor: colors.teal, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 18 },
   retryText: { color: '#06322f', fontWeight: '800', fontSize: 13 },
   noRooms: { color: colors.textMuted, fontSize: 13, marginBottom: 8 },
+  divider: { height: 1, backgroundColor: colors.cardBorder, marginTop: 20, marginBottom: 14 },
+  sectionTitle: { color: colors.white, fontWeight: '800', fontSize: 13.5, marginBottom: 10 },
+  paxCard: {
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+    padding: 14,
+    marginBottom: 14,
+  },
+  paxCardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  paxCardTitle: { color: colors.teal, fontWeight: '800', fontSize: 12.5, textTransform: 'uppercase', letterSpacing: 0.5 },
+  addPassengerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.teal,
+    borderStyle: 'dashed',
+    borderRadius: radii.input,
+    paddingVertical: 12,
+    marginBottom: 20,
+  },
+  addPassengerText: { color: colors.teal, fontWeight: '800', fontSize: 13 },
   fieldLabel: {
     color: colors.textMuted,
     fontSize: 11.5,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 16,
+    marginTop: 14,
     marginBottom: 8,
   },
   input: {
@@ -386,7 +503,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
+    backgroundColor: colors.navy2,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: radii.input,
@@ -411,7 +528,7 @@ const styles = StyleSheet.create({
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 26,
+    marginTop: 6,
   },
   submitBtnDisabled: { opacity: 0.5 },
   submitText: { color: '#06322f', fontWeight: '800', fontSize: 15 },

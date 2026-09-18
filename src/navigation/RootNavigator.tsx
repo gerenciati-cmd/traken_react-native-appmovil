@@ -10,6 +10,7 @@ import HomeScreen from '../screens/HomeScreen';
 import OpenOrdersScreen from '../screens/OpenOrdersScreen';
 import OrderMenuScreen from '../screens/OrderMenuScreen';
 import AddPaxScreen from '../screens/AddPaxScreen';
+import AddTransportScreen from '../screens/AddTransportScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 
@@ -21,12 +22,15 @@ export type OrderMenuParams = {
   typeAirline: string;
 };
 
+export type AddTransportParams = OrderMenuParams & { direction: 'in' | 'out' };
+
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
   OpenOrders: undefined;
   OrderMenu: OrderMenuParams;
   AddPax: OrderMenuParams;
+  AddTransport: AddTransportParams;
   ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
 };
 
@@ -57,6 +61,7 @@ export default function RootNavigator() {
             <Stack.Screen name="OpenOrders" component={OpenOrdersScreen} />
             <Stack.Screen name="OrderMenu" component={OrderMenuScreen} />
             <Stack.Screen name="AddPax" component={AddPaxScreen} />
+            <Stack.Screen name="AddTransport" component={AddTransportScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
           </>
         ) : (

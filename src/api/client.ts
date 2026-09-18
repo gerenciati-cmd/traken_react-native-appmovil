@@ -175,12 +175,7 @@ export async function getHotelsForOrder(idOrder: number, idAirport: number): Pro
 
 export type PaxType = 'adulto' | 'nino' | 'infante';
 
-export interface AddPaxPayload {
-  id_order: number;
-  id_airport: number;
-  id_hotel: number;
-  type_airline: string;
-  ocupation?: string;
+export interface PaxEntry {
   name: string;
   voucher?: string;
   f_salida: string;
@@ -194,6 +189,17 @@ export interface AddPaxPayload {
   dinner?: number;
 }
 
+export interface AddPaxPayload {
+  id_order: number;
+  id_airport: number;
+  id_hotel: number;
+  type_airline: string;
+  ocupation?: string;
+  /** Una habitacion puede traer varios pasajeros (ej. una familia); todos
+   * comparten la misma habitacion y solo cuentan como 1 cuarto ocupado. */
+  passengers: PaxEntry[];
+}
+
 export interface AddPaxResponse {
   ok: boolean;
   status?: 'exito' | 'dispo' | 'error';
@@ -203,5 +209,50 @@ export interface AddPaxResponse {
 
 export async function addPax(payload: AddPaxPayload): Promise<AddPaxResponse> {
   const { data } = await api.post<AddPaxResponse>('/orders/addPax.php', payload);
+  return data;
+}
+
+export interface NamedOption {
+  id: number;
+  name: string;
+}
+
+export interface TransportOptionsResponse {
+  ok: boolean;
+  hotels?: NamedOption[];
+  transports?: NamedOption[];
+  units?: NamedOption[];
+  error?: string;
+}
+
+export async function getTransportOptions(idOrder: number, idAirport: number): Promise<TransportOptionsResponse> {
+  const { data } = await api.get<TransportOptionsResponse>('/orders/transportOptions.php', {
+    params: { id_order: idOrder, id_airport: idAirport },
+  });
+  return data;
+}
+
+export type TransportDirection = 'in' | 'out';
+
+export interface AddTransportPayload {
+  id_order: number;
+  id_airport: number;
+  id_hotel: number;
+  id_transport: number;
+  unit: number;
+  quantity: number;
+  pax: number;
+  direction: TransportDirection;
+}
+
+export interface AddTransportResponse {
+  ok: boolean;
+  status?: 'exito' | 'error';
+  msg?: string;
+  error?: string;
+}
+
+export async function addTransport(payload: AddTransportPayload): Promise<AddTransportResponse> {
+  const { data } = await api.post<AddTransportResponse>('/orders/addTransport.php', payload);
   return data;
 }
