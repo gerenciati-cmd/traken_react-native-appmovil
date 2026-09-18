@@ -8,7 +8,7 @@ import {
   StationDTO,
   UserDTO,
 } from '../api/client';
-import { saveLastEmail } from '../utils/credentials';
+import { getLastProfile, saveLastEmail, saveLastProfile } from '../utils/credentials';
 
 const TOKEN_KEY = 'traken_token';
 
@@ -42,16 +42,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // No basta con confiar en el token guardado: pudo vencer o haber
         // sido revocado (logout desde otro lado). Se valida contra el
-        // servidor antes de dar por buena la sesion.
+        // servidor antes de dar por buena la sesion... PERO solo se cierra
+        // sesion cuando el servidor SI contesta y dice que el token ya no
+        // sirve. Si no hay señal (la app debe funcionar sin datos), se
+        // sigue con el token guardado y el ultimo perfil que se alcanzo a
+        // cachear, en vez de mandar a la persona al login sin necesidad.
         setAuthToken(storedToken);
-        const res = await meRequest();
-        if (res.ok && res.user) {
+        try {
+          const res = await meRequest();
+          if (res.ok && res.user) {
+            setToken(storedToken);
+            setUser(res.user);
+            setStations(res.stations ?? []);
+            await saveLastProfile(res.user, res.stations ?? []);
+          } else {
+            await SecureStore.deleteItemAsync(TOKEN_KEY);
+            setAuthToken(null);
+          }
+        } catch (networkError) {
+          const cached = await getLastProfile();
           setToken(storedToken);
-          setUser(res.user);
-          setStations(res.stations ?? []);
-        } else {
-          await SecureStore.deleteItemAsync(TOKEN_KEY);
-          setAuthToken(null);
+          if (cached) {
+            setUser(cached.user);
+            setStations(cached.stations);
+          }
         }
       } finally {
         setIsLoading(false);
@@ -67,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.ok && res.token && res.user) {
         await SecureStore.setItemAsync(TOKEN_KEY, res.token);
         await saveLastEmail(email);
+        await saveLastProfile(res.user, res.stations ?? []);
         setAuthToken(res.token);
         setToken(res.token);
         setUser(res.user);

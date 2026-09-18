@@ -13,7 +13,12 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first, cache fallback for GET requests only (never cache API calls/login).
+// Red primero, y si falla (sin datos/señal) usa lo ultimo que se guardo en
+// cache. Esto aplica a TODO GET, incluyendo las llamadas a la API
+// (/me.php, /orders/open.php, etc.) a proposito: asi, sin conexion, la app
+// puede seguir mostrando lo ultimo que se cargo (perfil, ordenes abiertas)
+// en vez de pantalla en blanco. Login es POST, nunca pasa por aqui, asi
+// que jamas se sirve un login cacheado/viejo.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -24,6 +29,16 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        // Nunca se guardo nada de esto (primera vez que se pide, sin
+        // señal): se contesta algo entendible en vez de dejar que el
+        // navegador truene con un error de red crudo.
+        return new Response(JSON.stringify({ ok: false, error: 'Sin conexión y sin datos guardados.' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      })
   );
 });
