@@ -325,6 +325,8 @@ export interface ExistingPaxDTO {
   breakfast: number;
   lunch: number;
   dinner: number;
+  voucher_img_url: string | null;
+  voucher_img_removed: boolean;
 }
 
 export interface PaxListResponse {
@@ -378,5 +380,90 @@ export interface RegisterPushTokenResponse {
 
 export async function registerPushToken(token: string, device?: string): Promise<RegisterPushTokenResponse> {
   const { data } = await api.post<RegisterPushTokenResponse>('/push/register.php', { token, device });
+  return data;
+}
+
+// ===== Escaneo y manejo de foto de voucher =====================
+
+export interface ScanVoucherResponse {
+  ok: boolean;
+  nombre?: string;
+  msg?: string;
+}
+
+/** Manda la foto a la IA (Claude), igual que la web. Puede tardar -- quien
+ * llama debe manejar sus propios timeouts/UI de espera (ver
+ * src/utils/voucherScan.ts, que replica los mismos tiempos que la web). */
+export async function scanVoucherAI(
+  fileUri: string,
+  idOrder?: number,
+  idAirport?: number
+): Promise<ScanVoucherResponse> {
+  const form = new FormData();
+  form.append('foto', { uri: fileUri, name: 'voucher.jpg', type: 'image/jpeg' } as any);
+  if (idOrder) form.append('id_order', String(idOrder));
+  if (idAirport) form.append('id_airport', String(idAirport));
+  const { data } = await api.post<ScanVoucherResponse>('/vouchers/scan.php', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 50000,
+  });
+  return data;
+}
+
+export async function logVoucherScan(
+  modo: 'ocr' | 'manual',
+  exito: boolean,
+  idOrder?: number,
+  idAirport?: number,
+  mensaje?: string
+): Promise<void> {
+  try {
+    await api.post('/vouchers/logScan.php', { modo, exito, id_order: idOrder, id_airport: idAirport, mensaje });
+  } catch (e) {
+    // No es critico si este aviso no llega.
+  }
+}
+
+export interface VoucherPhotoResponse {
+  ok: boolean;
+  filename?: string;
+  url?: string;
+  msg?: string;
+  error?: string;
+}
+
+export async function uploadVoucherPhoto(
+  idPax: number,
+  idOrder: number,
+  idAirport: number,
+  fileUri: string
+): Promise<VoucherPhotoResponse> {
+  const form = new FormData();
+  form.append('foto', { uri: fileUri, name: 'voucher.jpg', type: 'image/jpeg' } as any);
+  form.append('id_pax', String(idPax));
+  form.append('id_order', String(idOrder));
+  form.append('id_airport', String(idAirport));
+  const { data } = await api.post<VoucherPhotoResponse>('/vouchers/upload.php', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30000,
+  });
+  return data;
+}
+
+export async function removeVoucherPhoto(idPax: number, idOrder: number, idAirport: number): Promise<VoucherPhotoResponse> {
+  const { data } = await api.post<VoucherPhotoResponse>('/vouchers/remove.php', {
+    id_pax: idPax,
+    id_order: idOrder,
+    id_airport: idAirport,
+  });
+  return data;
+}
+
+export async function restoreVoucherPhoto(idPax: number, idOrder: number, idAirport: number): Promise<VoucherPhotoResponse> {
+  const { data } = await api.post<VoucherPhotoResponse>('/vouchers/restore.php', {
+    id_pax: idPax,
+    id_order: idOrder,
+    id_airport: idAirport,
+  });
   return data;
 }

@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { getHotelsForOrder, HotelDTO, PaxType, updatePax } from '../api/client';
+import VoucherPhotoSection from '../components/VoucherPhotoSection';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditPax'>;
@@ -176,6 +177,16 @@ export default function EditPaxScreen({ route, navigation }: Props) {
                   placeholderTextColor={colors.placeholder}
                   style={styles.input}
                   autoCapitalize="words"
+                />
+
+                <FieldLabel text="Foto de soporte / voucher" />
+                <VoucherPhotoSection
+                  idPax={pax.id}
+                  idOrder={folio}
+                  idAirport={idAirport}
+                  initialUrl={pax.voucher_img_url}
+                  initialRemoved={pax.voucher_img_removed}
+                  onNameDetected={(detected) => setName(detected)}
                 />
 
                 <FieldLabel text="Voucher (opcional)" />

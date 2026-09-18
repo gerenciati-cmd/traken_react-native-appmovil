@@ -120,6 +120,12 @@ export default function EditPaxListScreen({ route, navigation }: Props) {
                   <Text style={styles.cardName}>{item.name}</Text>
                   <Text style={styles.cardSub}>{item.hotel_name.trim()} · {item.date_out}</Text>
                 </View>
+                <Ionicons
+                  name={item.voucher_img_url ? 'checkmark-circle' : 'alert-circle-outline'}
+                  size={16}
+                  color={item.voucher_img_url ? '#22c55e' : '#f59e0b'}
+                  style={{ marginRight: 4 }}
+                />
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
             )}

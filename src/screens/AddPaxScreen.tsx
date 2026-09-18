@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { addPax, getHotelsForOrder, HotelDTO, PaxType } from '../api/client';
+import VoucherScanButton from '../components/VoucherScanButton';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddPax'>;
@@ -248,6 +249,8 @@ export default function AddPaxScreen({ route, navigation }: Props) {
                   canRemove={passengers.length > 1}
                   onChange={(patch) => updatePassenger(index, patch)}
                   onRemove={() => removePassenger(index)}
+                  idOrder={folio}
+                  idAirport={idAirport}
                 />
               ))}
 
@@ -278,6 +281,8 @@ function PassengerCard({
   canRemove,
   onChange,
   onRemove,
+  idOrder,
+  idAirport,
 }: {
   index: number;
   passenger: PassengerForm;
@@ -285,6 +290,8 @@ function PassengerCard({
   canRemove: boolean;
   onChange: (patch: Partial<PassengerForm>) => void;
   onRemove: () => void;
+  idOrder: number;
+  idAirport: number;
 }) {
   return (
     <View style={[styles.paxCard, shadow.card]}>
@@ -306,6 +313,14 @@ function PassengerCard({
         style={styles.input}
         autoCapitalize="words"
       />
+
+      <View style={{ marginTop: 8, marginBottom: 4 }}>
+        <VoucherScanButton
+          idOrder={idOrder}
+          idAirport={idAirport}
+          onNameDetected={(detected) => onChange({ name: detected })}
+        />
+      </View>
 
       <FieldLabel text="Voucher (opcional)" />
       <TextInput
