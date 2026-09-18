@@ -2,12 +2,23 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { ComponentProps } from 'react';
+import type { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
+import OpenOrdersScreen from '../screens/OpenOrdersScreen';
+import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  Login: undefined;
+  Home: undefined;
+  OpenOrders: undefined;
+  ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const navTheme = {
   ...DarkTheme,
@@ -29,7 +40,11 @@ export default function RootNavigator() {
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {token ? (
-          <Stack.Screen name="Home" component={HomeScreen} />
+          <>
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="OpenOrders" component={OpenOrdersScreen} />
+            <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
+          </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
         )}

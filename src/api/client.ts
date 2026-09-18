@@ -74,3 +74,28 @@ export async function logoutRequest(): Promise<void> {
     // Si no hay conexion, no importa: igual se borra la sesion localmente.
   }
 }
+
+export interface OpenOrderDTO {
+  id: number;
+  folio: number;
+  folio_display: string;
+  id_airport: number;
+  iata: string;
+  airline: string;
+  flight: string | null;
+  date_in: string | null;
+  type_airline: string;
+}
+
+export interface OpenOrdersResponse {
+  ok: boolean;
+  total?: number;
+  total_anteriores?: number;
+  orders?: OpenOrderDTO[];
+  error?: string;
+}
+
+export async function getOpenOrders(): Promise<OpenOrdersResponse> {
+  const { data } = await api.get<OpenOrdersResponse>('/orders/open.php');
+  return data;
+}
