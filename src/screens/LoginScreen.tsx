@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { getLastEmail } from '../utils/credentials';
 
 export default function LoginScreen() {
   const { login, isAuthenticating, error, clearError } = useAuth();
@@ -23,6 +24,17 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<'user' | 'pass' | null>(null);
+
+  // El correo se recuerda aunque hayas cerrado sesion antes (se guarda al
+  // iniciar sesion con exito, ver AuthContext). La contrasena NO se guarda
+  // aqui por seguridad -- el propio telefono la ofrece autocompletar solo
+  // (Llavero en iOS, Autofill/Smart Lock en Android) gracias a
+  // textContentType/autoComplete en los inputs de abajo.
+  React.useEffect(() => {
+    getLastEmail().then((saved) => {
+      if (saved) setUsername(saved);
+    });
+  }, []);
 
   const pressScale = useRef(new Animated.Value(1)).current;
   const logoFade = useRef(new Animated.Value(0)).current;
@@ -105,6 +117,8 @@ export default function LoginScreen() {
                   placeholderTextColor={colors.placeholder}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="username"
+                  autoComplete="username"
                   style={styles.input}
                   returnKeyType="next"
                 />
@@ -130,6 +144,8 @@ export default function LoginScreen() {
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
                   style={styles.input}
                   returnKeyType="go"
                   onSubmitEditing={handleSubmit}

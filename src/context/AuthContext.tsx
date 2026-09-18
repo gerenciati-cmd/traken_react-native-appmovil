@@ -8,6 +8,7 @@ import {
   StationDTO,
   UserDTO,
 } from '../api/client';
+import { saveLastEmail } from '../utils/credentials';
 
 const TOKEN_KEY = 'traken_token';
 
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await loginRequest(email, password);
       if (res.ok && res.token && res.user) {
         await SecureStore.setItemAsync(TOKEN_KEY, res.token);
+        await saveLastEmail(email);
         setAuthToken(res.token);
         setToken(res.token);
         setUser(res.user);
