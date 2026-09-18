@@ -99,3 +99,41 @@ export async function getOpenOrders(): Promise<OpenOrdersResponse> {
   const { data } = await api.get<OpenOrdersResponse>('/orders/open.php');
   return data;
 }
+
+export interface CommentDTO {
+  user_name: string;
+  comment: string;
+  created_at: string;
+}
+
+export interface CommentsResponse {
+  ok: boolean;
+  items?: CommentDTO[];
+  error?: string;
+}
+
+export async function getComments(idOrder: number, idAirport: number): Promise<CommentsResponse> {
+  const { data } = await api.get<CommentsResponse>('/orders/comments.php', {
+    params: { id_order: idOrder, id_airport: idAirport },
+  });
+  return data;
+}
+
+export interface AddCommentResponse {
+  ok: boolean;
+  msg?: string;
+  error?: string;
+}
+
+export async function addComment(
+  idOrder: number,
+  idAirport: number,
+  comment: string
+): Promise<AddCommentResponse> {
+  const { data } = await api.post<AddCommentResponse>('/orders/commentAdd.php', {
+    id_order: idOrder,
+    id_airport: idAirport,
+    comment,
+  });
+  return data;
+}

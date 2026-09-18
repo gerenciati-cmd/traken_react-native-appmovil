@@ -16,6 +16,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { getOpenOrders, OpenOrderDTO } from '../api/client';
 import { getCache, saveCache } from '../utils/offlineCache';
+import CommentsModal from '../components/CommentsModal';
+import QrEncuestaModal from '../components/QrEncuestaModal';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OpenOrders'>;
@@ -37,6 +39,8 @@ export default function OpenOrdersScreen({ navigation }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineSince, setOfflineSince] = useState<number | null>(null);
+  const [qrOrder, setQrOrder] = useState<OpenOrderDTO | null>(null);
+  const [commentsOrder, setCommentsOrder] = useState<OpenOrderDTO | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsRefreshing(true);
@@ -183,8 +187,46 @@ export default function OpenOrdersScreen({ navigation }: Props) {
                   </View>
                 ) : null}
               </View>
+              <View style={styles.actions}>
+                <Pressable
+                  style={[styles.actionBtn, styles.actionAdd]}
+                  onPress={() => navigation.navigate('ComingSoon', { title: 'Agregar Pasajero', icon: 'person-add-outline' })}
+                >
+                  <Ionicons name="add" size={14} color="#fff" />
+                  <Text style={styles.actionText}>Agregar</Text>
+                </Pressable>
+                <Pressable style={[styles.actionBtn, styles.actionQr]} onPress={() => setQrOrder(item)}>
+                  <Ionicons name="qr-code-outline" size={14} color="#4454c3" />
+                  <Text style={[styles.actionText, styles.actionQrText]}>QR</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.actionBtn, styles.actionDelay]}
+                  onPress={() => navigation.navigate('ComingSoon', { title: 'Aviso de Retraso', icon: 'time-outline' })}
+                >
+                  <Ionicons name="time-outline" size={14} color="#fff" />
+                  <Text style={styles.actionText}>Delay</Text>
+                </Pressable>
+                <Pressable style={[styles.actionBtn, styles.actionComments]} onPress={() => setCommentsOrder(item)}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={14} color="#fff" />
+                  <Text style={styles.actionText}>Comentarios</Text>
+                </Pressable>
+              </View>
             </View>
           )}
+        />
+
+        <QrEncuestaModal
+          visible={!!qrOrder}
+          onClose={() => setQrOrder(null)}
+          folioDisplay={qrOrder?.folio_display ?? ''}
+          iata={qrOrder?.iata ?? ''}
+        />
+        <CommentsModal
+          visible={!!commentsOrder}
+          onClose={() => setCommentsOrder(null)}
+          idOrder={commentsOrder?.folio ?? 0}
+          idAirport={commentsOrder?.id_airport ?? 0}
+          folioDisplay={commentsOrder?.folio_display ?? ''}
         />
       </SafeAreaView>
     </LinearGradient>
@@ -267,6 +309,21 @@ const styles = StyleSheet.create({
   rows: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   rowItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   rowText: { color: colors.textMuted, fontSize: 12 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+  },
+  actionText: { color: '#fff', fontWeight: '700', fontSize: 11.5 },
+  actionAdd: { backgroundColor: '#16a34a' },
+  actionQr: { backgroundColor: '#eef2ff', borderWidth: 1, borderColor: '#dbe3ff' },
+  actionQrText: { color: '#4454c3' },
+  actionDelay: { backgroundColor: '#0891b2' },
+  actionComments: { backgroundColor: '#d97706' },
   emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
   emptyText: { color: colors.textMuted, fontSize: 13 },
   oldBanner: {
