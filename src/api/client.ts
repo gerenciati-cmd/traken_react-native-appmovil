@@ -256,3 +256,34 @@ export async function addTransport(payload: AddTransportPayload): Promise<AddTra
   const { data } = await api.post<AddTransportResponse>('/orders/addTransport.php', payload);
   return data;
 }
+
+export interface CloseOrderResponse {
+  ok: boolean;
+  status?: 'exito' | 'error';
+  msg?: string;
+  reasons?: string[];
+  error?: string;
+}
+
+export async function closeOrder(folio: number, idAirport: number): Promise<CloseOrderResponse> {
+  const { data } = await api.post<CloseOrderResponse>('/orders/closeOrder.php', {
+    id_order: folio,
+    id_airport: idAirport,
+  });
+  return data;
+}
+
+export interface CancelOrderResponse {
+  ok: boolean;
+  status?: 'exito' | 'error';
+  msg?: string;
+  error?: string;
+}
+
+export async function cancelOrder(folio: number, idAirport: number): Promise<CancelOrderResponse> {
+  const { data } = await api.post<CancelOrderResponse>('/orders/cancelOrder.php', {
+    id_order: folio,
+    id_airport: idAirport,
+  });
+  return data;
+}

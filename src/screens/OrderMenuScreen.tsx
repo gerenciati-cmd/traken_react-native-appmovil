@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
-import { sendOrderEmail } from '../api/client';
+import { cancelOrder, closeOrder, sendOrderEmail } from '../api/client';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderMenu'>;
@@ -23,9 +23,73 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 export default function OrderMenuScreen({ route, navigation }: Props) {
   const { folio, idAirport, folioDisplay, iata, typeAirline } = route.params;
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const goComingSoon = (title: string, icon: IconName) => () =>
     navigation.navigate('ComingSoon', { title, icon });
+
+  const handleClose = () => {
+    Alert.alert(
+      'Cerrar Orden de Servicio',
+      `¿Cerrar la O.S. ${folioDisplay}? Se requiere transporte de salida registrado y todos los pasajeros con nombre y fecha de salida completos.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar O.S.',
+          onPress: async () => {
+            setIsClosing(true);
+            try {
+              const res = await closeOrder(folio, idAirport);
+              if (res.ok) {
+                Alert.alert('O.S. cerrada', res.msg ?? '', [
+                  { text: 'OK', onPress: () => navigation.navigate('OpenOrders') },
+                ]);
+              } else {
+                const reasons = res.reasons?.length ? '\n\n• ' + res.reasons.join('\n• ') : '';
+                Alert.alert('No se pudo cerrar', (res.error ?? 'Faltan requisitos.') + reasons);
+              }
+            } catch (e) {
+              Alert.alert('Sin conexión', 'No se pudo cerrar la O.S. Intenta de nuevo.');
+            } finally {
+              setIsClosing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancelar Orden de Servicio',
+      `Esta acción es difícil de revertir. ¿Seguro que quieres cancelar la O.S. ${folioDisplay}?`,
+      [
+        { text: 'No, mantener', style: 'cancel' },
+        {
+          text: 'Sí, cancelar O.S.',
+          style: 'destructive',
+          onPress: async () => {
+            setIsCancelling(true);
+            try {
+              const res = await cancelOrder(folio, idAirport);
+              if (res.ok) {
+                Alert.alert('O.S. cancelada', res.msg ?? '', [
+                  { text: 'OK', onPress: () => navigation.navigate('OpenOrders') },
+                ]);
+              } else {
+                Alert.alert('No se pudo cancelar', res.error ?? res.msg ?? 'Intenta de nuevo.');
+              }
+            } catch (e) {
+              Alert.alert('Sin conexión', 'No se pudo cancelar la O.S. Intenta de nuevo.');
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSendEmail = () => {
     Alert.alert(
@@ -109,15 +173,17 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
       sub: 'Requiere transporte y pax completos',
       icon: 'lock-closed-outline',
       color: '#16a34a',
-      onPress: goComingSoon('Cerrar Orden de Servicio', 'lock-closed-outline'),
+      onPress: handleClose,
+      loading: isClosing,
     },
     {
       key: 'cancel',
       label: 'Cancelar Orden',
-      sub: 'Acción irreversible',
+      sub: 'Acción difícil de revertir',
       icon: 'close-circle-outline',
       color: '#dc2626',
-      onPress: goComingSoon('Cancelar Orden de Servicio', 'close-circle-outline'),
+      onPress: handleCancel,
+      loading: isCancelling,
     },
   ];
 
@@ -149,7 +215,7 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
               </View>
               <View style={styles.itemText}>
                 <Text style={styles.itemLabel}>{it.label}</Text>
-                <Text style={styles.itemSub}>{it.loading ? 'Enviando...' : it.sub}</Text>
+                <Text style={styles.itemSub}>{it.loading ? 'Procesando...' : it.sub}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
