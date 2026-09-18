@@ -190,7 +190,14 @@ export default function OpenOrdersScreen({ navigation }: Props) {
               <View style={styles.actions}>
                 <Pressable
                   style={[styles.actionBtn, styles.actionAdd]}
-                  onPress={() => navigation.navigate('ComingSoon', { title: 'Agregar Pasajero', icon: 'person-add-outline' })}
+                  onPress={() =>
+                    navigation.navigate('OrderMenu', {
+                      folio: item.folio,
+                      idAirport: item.id_airport,
+                      folioDisplay: item.folio_display,
+                      iata: item.iata,
+                    })
+                  }
                 >
                   <Ionicons name="add" size={14} color="#fff" />
                   <Text style={styles.actionText}>Agregar</Text>

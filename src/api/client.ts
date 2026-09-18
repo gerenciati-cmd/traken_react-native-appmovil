@@ -125,6 +125,20 @@ export interface AddCommentResponse {
   error?: string;
 }
 
+export interface SendEmailResponse {
+  ok: boolean;
+  msg?: string;
+  error?: string;
+}
+
+export async function sendOrderEmail(folio: number, idAirport: number): Promise<SendEmailResponse> {
+  const { data } = await api.post<SendEmailResponse>('/orders/sendEmail.php', {
+    folio,
+    id_airport: idAirport,
+  });
+  return data;
+}
+
 export async function addComment(
   idOrder: number,
   idAirport: number,

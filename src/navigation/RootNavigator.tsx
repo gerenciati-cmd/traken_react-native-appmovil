@@ -8,13 +8,22 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import OpenOrdersScreen from '../screens/OpenOrdersScreen';
+import OrderMenuScreen from '../screens/OrderMenuScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
+
+export type OrderMenuParams = {
+  folio: number;
+  idAirport: number;
+  folioDisplay: string;
+  iata: string;
+};
 
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
   OpenOrders: undefined;
+  OrderMenu: OrderMenuParams;
   ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
 };
 
@@ -43,6 +52,7 @@ export default function RootNavigator() {
           <>
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="OpenOrders" component={OpenOrdersScreen} />
+            <Stack.Screen name="OrderMenu" component={OrderMenuScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
           </>
         ) : (
