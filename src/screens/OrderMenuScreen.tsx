@@ -23,7 +23,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
  * esta listo.
  */
 export default function OrderMenuScreen({ route, navigation }: Props) {
-  const { folio, idAirport, folioDisplay, iata, typeAirline } = route.params;
+  const { folio, idAirport, folioDisplay, iata, typeAirline, airline, flight } = route.params;
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -193,6 +193,15 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
       color: '#0891b2',
       onPress: () =>
         navigation.navigate('AddTransport', { folio, idAirport, folioDisplay, iata, typeAirline, direction: 'out' }),
+    },
+    {
+      key: 'delay',
+      label: 'Delay',
+      sub: 'Generar Aviso de Retraso',
+      icon: 'time-outline',
+      color: '#0891b2',
+      onPress: () =>
+        navigation.navigate('Delay', { folio, idAirport, folioDisplay, iata, typeAirline, airline, flight }),
     },
     {
       key: 'email',

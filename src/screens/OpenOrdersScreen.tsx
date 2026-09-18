@@ -197,6 +197,8 @@ export default function OpenOrdersScreen({ navigation }: Props) {
                       folioDisplay: item.folio_display,
                       iata: item.iata,
                       typeAirline: item.type_airline,
+                      airline: item.airline,
+                      flight: item.flight,
                     })
                   }
                 >

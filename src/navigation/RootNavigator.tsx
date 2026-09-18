@@ -13,6 +13,7 @@ import AddPaxScreen from '../screens/AddPaxScreen';
 import AddTransportScreen from '../screens/AddTransportScreen';
 import EditPaxListScreen from '../screens/EditPaxListScreen';
 import EditPaxScreen from '../screens/EditPaxScreen';
+import DelayScreen from '../screens/DelayScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 import type { ExistingPaxDTO } from '../api/client';
@@ -23,10 +24,13 @@ export type OrderMenuParams = {
   folioDisplay: string;
   iata: string;
   typeAirline: string;
+  airline?: string;
+  flight?: string | null;
 };
 
 export type AddTransportParams = OrderMenuParams & { direction: 'in' | 'out' };
 export type EditPaxParams = OrderMenuParams & { pax: ExistingPaxDTO };
+export type DelayParams = OrderMenuParams;
 
 export type RootStackParamList = {
   Login: undefined;
@@ -37,6 +41,7 @@ export type RootStackParamList = {
   AddTransport: AddTransportParams;
   EditPaxList: OrderMenuParams;
   EditPax: EditPaxParams;
+  Delay: DelayParams;
   ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
 };
 
@@ -70,6 +75,7 @@ export default function RootNavigator() {
             <Stack.Screen name="AddTransport" component={AddTransportScreen} />
             <Stack.Screen name="EditPaxList" component={EditPaxListScreen} />
             <Stack.Screen name="EditPax" component={EditPaxScreen} />
+            <Stack.Screen name="Delay" component={DelayScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
           </>
         ) : (

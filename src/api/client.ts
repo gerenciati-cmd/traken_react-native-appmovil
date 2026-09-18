@@ -309,6 +309,47 @@ export function getAuthHeader(): string | undefined {
   return api.defaults.headers.common['Authorization'] as string | undefined;
 }
 
+/**
+ * Delay Info (Aviso de Retraso) -- misma pareja de endpoints que usa el
+ * modal "Delay" en op/modulos/open/inicio.php (descargar.php / enviar_correo.php).
+ * Esos 2 archivos NUNCA validaron $_SESSION (ni siquiera en la web), asi que
+ * el movil los llama directo con su URL completa, sin token: es exactamente
+ * la misma llamada que ya hace el navegador, solo que desde la app. Cero
+ * cambios en el backend para esta funcion.
+ */
+export interface DelayFormData {
+  lang: string;
+  airline: string;
+  flight: string;
+  dest: string;
+  pickup: string;
+  departure: string;
+  date: string;
+  folio: string;
+  estacion: string;
+}
+
+const DELAY_BASE_URL = 'https://traken.mx/op/modulos/delayInfo';
+
+export function getDelayImageUrl(d: DelayFormData): string {
+  const qs = new URLSearchParams({ ...d, dl: '1' }).toString();
+  return `${DELAY_BASE_URL}/descargar.php?${qs}`;
+}
+
+export interface SendDelayEmailResponse {
+  ok: boolean;
+  msg?: string;
+}
+
+export async function sendDelayEmail(to: string, d: DelayFormData): Promise<SendDelayEmailResponse> {
+  const body = new URLSearchParams({ to, ...d }).toString();
+  const { data } = await axios.post<SendDelayEmailResponse>(`${DELAY_BASE_URL}/enviar_correo.php`, body, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    timeout: 20000,
+  });
+  return data;
+}
+
 export interface ExistingPaxDTO {
   id: number;
   name: string;
