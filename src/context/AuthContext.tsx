@@ -9,6 +9,7 @@ import {
   UserDTO,
 } from '../api/client';
 import { getLastProfile, saveLastEmail, saveLastProfile } from '../utils/credentials';
+import { registerForPushNotificationsAsync } from '../utils/pushNotifications';
 
 const TOKEN_KEY = 'traken_token';
 
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(res.user);
             setStations(res.stations ?? []);
             await saveLastProfile(res.user, res.stations ?? []);
+            registerForPushNotificationsAsync();
           } else {
             await SecureStore.deleteItemAsync(TOKEN_KEY);
             setAuthToken(null);
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(res.token);
         setUser(res.user);
         setStations(res.stations ?? []);
+        registerForPushNotificationsAsync();
         return true;
       }
       setError(res.error ?? 'Credenciales inválidas');

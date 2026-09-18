@@ -369,3 +369,14 @@ export async function updatePax(payload: UpdatePaxPayload): Promise<UpdatePaxRes
   const { data } = await api.post<UpdatePaxResponse>('/orders/updatePax.php', payload);
   return data;
 }
+
+export interface RegisterPushTokenResponse {
+  ok: boolean;
+  msg?: string;
+  error?: string;
+}
+
+export async function registerPushToken(token: string, device?: string): Promise<RegisterPushTokenResponse> {
+  const { data } = await api.post<RegisterPushTokenResponse>('/push/register.php', { token, device });
+  return data;
+}
