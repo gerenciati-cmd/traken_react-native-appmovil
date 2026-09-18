@@ -15,9 +15,19 @@ import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { getOpenOrders, OpenOrderDTO } from '../api/client';
+import { getCache, saveCache } from '../utils/offlineCache';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OpenOrders'>;
+
+const CACHE_KEY = 'open_orders';
+type CachedOrders = { orders: OpenOrderDTO[]; totalAnteriores: number };
+
+function formatSavedAt(ms: number) {
+  const d = new Date(ms);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) +
+    ' ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function OpenOrdersScreen({ navigation }: Props) {
   const [orders, setOrders] = useState<OpenOrderDTO[]>([]);
@@ -26,6 +36,7 @@ export default function OpenOrdersScreen({ navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineSince, setOfflineSince] = useState<number | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsRefreshing(true);
@@ -34,13 +45,27 @@ export default function OpenOrdersScreen({ navigation }: Props) {
     try {
       const res = await getOpenOrders();
       if (res.ok) {
-        setOrders(res.orders ?? []);
-        setTotalAnteriores(res.total_anteriores ?? 0);
+        const nextOrders = res.orders ?? [];
+        const nextTotalAnteriores = res.total_anteriores ?? 0;
+        setOrders(nextOrders);
+        setTotalAnteriores(nextTotalAnteriores);
+        setOfflineSince(null);
+        await saveCache<CachedOrders>(CACHE_KEY, { orders: nextOrders, totalAnteriores: nextTotalAnteriores });
       } else {
         setError(res.error ?? 'No se pudo cargar la información.');
       }
     } catch (e) {
-      setError('Sin conexión con el servidor de Traken.');
+      // Sin señal: se muestra lo ultimo que se guardo (si hay), en vez de
+      // dejar la pantalla vacia. Esto funciona igual en Expo Go que en un
+      // build nativo real -- no depende de que la app sea PWA.
+      const cached = await getCache<CachedOrders>(CACHE_KEY);
+      if (cached) {
+        setOrders(cached.data.orders);
+        setTotalAnteriores(cached.data.totalAnteriores);
+        setOfflineSince(cached.savedAt);
+      } else {
+        setError('Sin conexión y sin datos guardados todavía.');
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -90,6 +115,13 @@ export default function OpenOrdersScreen({ navigation }: Props) {
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle" size={16} color={colors.danger} />
             <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : offlineSince ? (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={16} color="#fde68a" />
+            <Text style={styles.offlineBannerText}>
+              Sin conexión: mostrando lo guardado el {formatSavedAt(offlineSince)}
+            </Text>
           </View>
         ) : null}
 
@@ -198,6 +230,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   errorText: { color: '#ffb4bb', fontSize: 12.5, flexShrink: 1 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: radii.input,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  offlineBannerText: { color: '#fde68a', fontSize: 12, flexShrink: 1 },
   listContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 10 },
   card: {
     borderRadius: radii.card,
