@@ -50,7 +50,7 @@ export default function HomeScreen({ navigation }: Props) {
       label: 'Crear O.S',
       icon: 'document-text-outline',
       gradient: ['#2563eb', '#1d4ed8'],
-      onPress: goComingSoon('Crear O.S', 'document-text-outline'),
+      onPress: () => navigation.navigate('CreateOrder'),
     },
     {
       key: 'abiertos',

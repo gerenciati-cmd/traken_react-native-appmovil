@@ -289,6 +289,82 @@ export async function cancelOrder(folio: number, idAirport: number): Promise<Can
 }
 
 /**
+ * Crear O.S. -- equivalente movil de op/modulos/create/inicio.php +
+ * insertNewOrder.php. Catalogos en 3 pasos (igual que la web: primero
+ * estacion+evento, luego aerolineas de esa estacion, luego hoteles de esa
+ * estacion) y el envio final que crea la orden de verdad.
+ */
+export interface StationOption {
+  id: number;
+  iata: string;
+  name: string;
+}
+
+export interface CreateOrderOptionsResponse {
+  ok: boolean;
+  stations?: StationOption[];
+  events?: NamedOption[];
+  error?: string;
+}
+
+export async function getCreateOrderOptions(): Promise<CreateOrderOptionsResponse> {
+  const { data } = await api.get<CreateOrderOptionsResponse>('/orders/createOrderOptions.php');
+  return data;
+}
+
+export interface CreateOrderCatalogResponse {
+  ok: boolean;
+  airlines?: NamedOption[];
+  hotels?: NamedOption[];
+  error?: string;
+}
+
+export async function getCreateOrderAirlines(idAirport: number): Promise<CreateOrderCatalogResponse> {
+  const { data } = await api.get<CreateOrderCatalogResponse>('/orders/createOrderAirlines.php', {
+    params: { id_airport: idAirport },
+  });
+  return data;
+}
+
+export async function getCreateOrderHotels(idAirport: number): Promise<CreateOrderCatalogResponse> {
+  const { data } = await api.get<CreateOrderCatalogResponse>('/orders/createOrderHotels.php', {
+    params: { id_airport: idAirport },
+  });
+  return data;
+}
+
+export interface CreateOrderHotelInput {
+  id_hotel: number;
+  dispo: number;
+}
+
+export interface CreateOrderPayload {
+  id_airport: number;
+  flight: string;
+  event: number;
+  airline: number;
+  date_in: string;
+  date_out: string;
+  hour: string;
+  hotels: CreateOrderHotelInput[];
+  codigo_verif?: string;
+}
+
+export interface CreateOrderResponse {
+  ok: boolean;
+  error?: string;
+  msg?: string;
+  sc?: boolean;
+  code?: string;
+  folio?: number;
+}
+
+export async function createOrder(payload: CreateOrderPayload): Promise<CreateOrderResponse> {
+  const { data } = await api.post<CreateOrderResponse>('/orders/createOrder.php', payload);
+  return data;
+}
+
+/**
  * El PDF de vouchers vive fuera de op/api/ (op/modulos/open/voucherPdfDownload.php,
  * el mismo generador que ya usa la web) porque genera un PDF con TCPDF, no
  * JSON. voucherPdfDownload.php se modifico para aceptar TAMBIEN un token

@@ -14,6 +14,7 @@ import AddTransportScreen from '../screens/AddTransportScreen';
 import EditPaxListScreen from '../screens/EditPaxListScreen';
 import EditPaxScreen from '../screens/EditPaxScreen';
 import DelayScreen from '../screens/DelayScreen';
+import CreateOrderScreen from '../screens/CreateOrderScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 import type { ExistingPaxDTO } from '../api/client';
@@ -35,6 +36,7 @@ export type DelayParams = OrderMenuParams;
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
+  CreateOrder: undefined;
   OpenOrders: undefined;
   OrderMenu: OrderMenuParams;
   AddPax: OrderMenuParams;
@@ -69,6 +71,7 @@ export default function RootNavigator() {
         {token ? (
           <>
             <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
             <Stack.Screen name="OpenOrders" component={OpenOrdersScreen} />
             <Stack.Screen name="OrderMenu" component={OrderMenuScreen} />
             <Stack.Screen name="AddPax" component={AddPaxScreen} />
