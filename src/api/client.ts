@@ -151,3 +151,57 @@ export async function addComment(
   });
   return data;
 }
+
+export interface HotelDTO {
+  id: number;
+  name: string;
+  rooms_dis: number;
+}
+
+export interface HotelsResponse {
+  ok: boolean;
+  hotels?: HotelDTO[];
+  default_date_out?: string | null;
+  default_hour?: string | null;
+  error?: string;
+}
+
+export async function getHotelsForOrder(idOrder: number, idAirport: number): Promise<HotelsResponse> {
+  const { data } = await api.get<HotelsResponse>('/orders/hotels.php', {
+    params: { id_order: idOrder, id_airport: idAirport },
+  });
+  return data;
+}
+
+export type PaxType = 'adulto' | 'nino' | 'infante';
+
+export interface AddPaxPayload {
+  id_order: number;
+  id_airport: number;
+  id_hotel: number;
+  type_airline: string;
+  ocupation?: string;
+  name: string;
+  voucher?: string;
+  f_salida: string;
+  hora: string;
+  type: PaxType;
+  chek?: 0 | 1 | 2;
+  age_c?: number;
+  age_i?: number;
+  breakfast?: number;
+  lunch?: number;
+  dinner?: number;
+}
+
+export interface AddPaxResponse {
+  ok: boolean;
+  status?: 'exito' | 'dispo' | 'error';
+  msg?: string;
+  error?: string;
+}
+
+export async function addPax(payload: AddPaxPayload): Promise<AddPaxResponse> {
+  const { data } = await api.post<AddPaxResponse>('/orders/addPax.php', payload);
+  return data;
+}

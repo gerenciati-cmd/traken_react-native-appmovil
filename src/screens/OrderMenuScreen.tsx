@@ -21,7 +21,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
  * esta listo.
  */
 export default function OrderMenuScreen({ route, navigation }: Props) {
-  const { folio, idAirport, folioDisplay, iata } = route.params;
+  const { folio, idAirport, folioDisplay, iata, typeAirline } = route.params;
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const goComingSoon = (title: string, icon: IconName) => () =>
@@ -63,10 +63,10 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
     {
       key: 'pax',
       label: 'Pax',
-      sub: 'Agregar o editar pasajeros',
-      icon: 'person-outline',
+      sub: 'Agregar pasajero',
+      icon: 'person-add-outline',
       color: '#2563eb',
-      onPress: goComingSoon('Agregar / Editar Pax', 'person-outline'),
+      onPress: () => navigation.navigate('AddPax', { folio, idAirport, folioDisplay, iata, typeAirline }),
     },
     {
       key: 'transp-in',

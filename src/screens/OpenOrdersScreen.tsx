@@ -196,6 +196,7 @@ export default function OpenOrdersScreen({ navigation }: Props) {
                       idAirport: item.id_airport,
                       folioDisplay: item.folio_display,
                       iata: item.iata,
+                      typeAirline: item.type_airline,
                     })
                   }
                 >
