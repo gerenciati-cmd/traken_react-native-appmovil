@@ -287,3 +287,21 @@ export async function cancelOrder(folio: number, idAirport: number): Promise<Can
   });
   return data;
 }
+
+/**
+ * El PDF de vouchers vive fuera de op/api/ (op/modulos/open/voucherPdfDownload.php,
+ * el mismo generador que ya usa la web) porque genera un PDF con TCPDF, no
+ * JSON. voucherPdfDownload.php se modifico para aceptar TAMBIEN un token
+ * Bearer ademas de la sesion de navegador (ver el comentario en ese archivo),
+ * asi que basta con pedir la URL absoluta con el mismo cliente axios (que ya
+ * manda el token en cada peticion) en vez de duplicar la generacion del PDF.
+ */
+const VOUCHER_PDF_URL = 'https://traken.mx/op/modulos/open/voucherPdfDownload.php';
+
+export async function downloadVoucherPdfBytes(folio: number, idAirport: number): Promise<ArrayBuffer> {
+  const response = await api.get<ArrayBuffer>(VOUCHER_PDF_URL, {
+    params: { id: folio, id_airport: idAirport },
+    responseType: 'arraybuffer',
+  });
+  return response.data;
+}

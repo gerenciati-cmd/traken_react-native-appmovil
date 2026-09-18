@@ -5,9 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
-import { cancelOrder, closeOrder, sendOrderEmail } from '../api/client';
+import { cancelOrder, closeOrder, downloadVoucherPdfBytes, sendOrderEmail } from '../api/client';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderMenu'>;
@@ -25,9 +27,38 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isDownloadingVouchers, setIsDownloadingVouchers] = useState(false);
 
   const goComingSoon = (title: string, icon: IconName) => () =>
     navigation.navigate('ComingSoon', { title, icon });
+
+  const handleDownloadVouchers = async () => {
+    setIsDownloadingVouchers(true);
+    try {
+      const bytes = await downloadVoucherPdfBytes(folio, idAirport);
+      const fileName = `Vouchers-${folioDisplay.replace(/[^A-Za-z0-9-]/g, '')}.pdf`;
+      const file = new File(Paths.cache, fileName);
+      if (file.exists) file.delete();
+      file.create();
+      file.write(new Uint8Array(bytes));
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', dialogTitle: 'Vouchers de la O.S.' });
+      } else {
+        Alert.alert('Descargado', 'El PDF se guardó, pero este dispositivo no puede compartirlo/abrirlo directo.');
+      }
+    } catch (e: any) {
+      const status = e?.response?.status;
+      if (status === 404) {
+        Alert.alert('Sin vouchers', 'No hay vouchers guardados para esta O.S.');
+      } else {
+        Alert.alert('No se pudo descargar', 'Revisa tu conexión e intenta de nuevo.');
+      }
+    } finally {
+      setIsDownloadingVouchers(false);
+    }
+  };
 
   const handleClose = () => {
     Alert.alert(
@@ -165,7 +196,8 @@ export default function OrderMenuScreen({ route, navigation }: Props) {
       sub: 'Descargar comprobantes',
       icon: 'image-outline',
       color: '#0891b2',
-      onPress: goComingSoon('Vouchers de esta O.S.', 'image-outline'),
+      onPress: handleDownloadVouchers,
+      loading: isDownloadingVouchers,
     },
     {
       key: 'close',
