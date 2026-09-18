@@ -1,17 +1,24 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { loginRequest } from '../api/client';
+import {
+  loginRequest,
+  logoutRequest,
+  meRequest,
+  setAuthToken,
+  StationDTO,
+  UserDTO,
+} from '../api/client';
 
 const TOKEN_KEY = 'traken_token';
-const USER_KEY = 'traken_username';
 
 type AuthContextValue = {
   token: string | null;
-  username: string | null;
+  user: UserDTO | null;
+  stations: StationDTO[];
   isLoading: boolean;
   isAuthenticating: boolean;
   error: string | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
 };
@@ -20,7 +27,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
+  const [user, setUser] = useState<UserDTO | null>(null);
+  const [stations, setStations] = useState<StationDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,25 +37,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-        const storedUser = await SecureStore.getItemAsync(USER_KEY);
-        if (storedToken) setToken(storedToken);
-        if (storedUser) setUsername(storedUser);
+        if (!storedToken) return;
+
+        // No basta con confiar en el token guardado: pudo vencer o haber
+        // sido revocado (logout desde otro lado). Se valida contra el
+        // servidor antes de dar por buena la sesion.
+        setAuthToken(storedToken);
+        const res = await meRequest();
+        if (res.ok && res.user) {
+          setToken(storedToken);
+          setUser(res.user);
+          setStations(res.stations ?? []);
+        } else {
+          await SecureStore.deleteItemAsync(TOKEN_KEY);
+          setAuthToken(null);
+        }
       } finally {
         setIsLoading(false);
       }
     })();
   }, []);
 
-  const login = async (user: string, password: string) => {
+  const login = async (email: string, password: string) => {
     setIsAuthenticating(true);
     setError(null);
     try {
-      const res = await loginRequest(user, password);
-      if (res.token) {
+      const res = await loginRequest(email, password);
+      if (res.ok && res.token && res.user) {
         await SecureStore.setItemAsync(TOKEN_KEY, res.token);
-        await SecureStore.setItemAsync(USER_KEY, user);
+        setAuthToken(res.token);
         setToken(res.token);
-        setUsername(user);
+        setUser(res.user);
+        setStations(res.stations ?? []);
         return true;
       }
       setError(res.error ?? 'Credenciales inválidas');
@@ -61,17 +82,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    await logoutRequest();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
+    setAuthToken(null);
     setToken(null);
-    setUsername(null);
+    setUser(null);
+    setStations([]);
   };
 
   const clearError = () => setError(null);
 
   const value = useMemo(
-    () => ({ token, username, isLoading, isAuthenticating, error, login, logout, clearError }),
-    [token, username, isLoading, isAuthenticating, error]
+    () => ({ token, user, stations, isLoading, isAuthenticating, error, login, logout, clearError }),
+    [token, user, stations, isLoading, isAuthenticating, error]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

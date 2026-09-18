@@ -1,11 +1,9 @@
 import axios from 'axios';
 
-// Backend real de Traken (Laragon), accesible por IP de red local para que
-// tu celular con Expo Go (misma WiFi que tu PC) pueda llegar a él —
-// "traken.test" solo resuelve dentro de tu PC, por eso NO se usa aquí.
-// Si la IP de tu PC cambia (otra red, reinicio del router), actualízala aquí.
-// Para emulador Android usa 'http://10.0.2.2/traken/api' en su lugar.
-export const API_BASE_URL = 'http://192.168.2.13/traken/api';
+// Backend real de Traken en produccion. Se usa directo (no el Laragon local)
+// para que el celular funcione sin depender de que la PC este prendida ni
+// de estar en la misma WiFi.
+export const API_BASE_URL = 'https://traken.mx/op/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -15,15 +13,64 @@ export const api = axios.create({
   },
 });
 
+/** Se llama al iniciar sesion (o al restaurar una guardada) para que TODAS
+ * las peticiones siguientes manden el token automaticamente. */
+export function setAuthToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+}
+
+export interface StationDTO {
+  id: number;
+  iata: string;
+  name: string;
+}
+
+export interface UserDTO {
+  id: number;
+  email: string;
+  firstname: string;
+  lastname: string;
+  role_id: number;
+  role_name: string;
+}
+
 export interface LoginResponse {
+  ok: boolean;
   token?: string;
+  user?: UserDTO;
+  stations?: StationDTO[];
   error?: string;
 }
 
-export async function loginRequest(username: string, password: string): Promise<LoginResponse> {
-  const { data } = await api.post<LoginResponse>('/index.php?action=login', {
-    username,
+export interface MeResponse {
+  ok: boolean;
+  user?: UserDTO;
+  stations?: StationDTO[];
+  error?: string;
+}
+
+export async function loginRequest(email: string, password: string): Promise<LoginResponse> {
+  const { data } = await api.post<LoginResponse>('/auth/login.php', {
+    email,
     password,
+    device: 'expo-app',
   });
   return data;
+}
+
+export async function meRequest(): Promise<MeResponse> {
+  const { data } = await api.get<MeResponse>('/me.php');
+  return data;
+}
+
+export async function logoutRequest(): Promise<void> {
+  try {
+    await api.post('/auth/logout.php');
+  } catch (e) {
+    // Si no hay conexion, no importa: igual se borra la sesion localmente.
+  }
 }
