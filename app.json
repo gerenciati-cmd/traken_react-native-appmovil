@@ -44,6 +44,12 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-sqlite"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cdb40c0b-1a6a-4a9f-a7b4-5797009678bf"
+      }
+    },
+    "owner": "aps-holding-1a"
   }
 }
