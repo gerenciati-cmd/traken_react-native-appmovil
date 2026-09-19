@@ -858,3 +858,89 @@ export async function sendReportByEmail(payload: {
   });
   return data;
 }
+
+/**
+ * Editar O.S. -- equivalente movil de op/modulos/createEdit/*. Aeropuerto y
+ * aerolinea son de solo lectura aqui (igual que en el formulario web).
+ */
+export interface EditOrderInfo {
+  folio_display: string;
+  iata: string;
+  airline: string;
+  flight: string | null;
+  id_event: number;
+  date_in: string | null;
+  date_out: string | null;
+  hour: string | null;
+  status: 'open' | 'close' | 'cancel';
+}
+
+export interface EditOrderHotel {
+  id_orders_hotels: number;
+  id_hotel: number;
+  name: string;
+  rooms_dis: number;
+}
+
+export interface EditOrderInfoResponse {
+  ok: boolean;
+  order?: EditOrderInfo;
+  hotels?: EditOrderHotel[];
+  error?: string;
+}
+
+export async function getEditOrderInfo(folio: number, idAirport: number): Promise<EditOrderInfoResponse> {
+  const { data } = await api.get<EditOrderInfoResponse>('/orders/editOrderInfo.php', {
+    params: { id: folio, id_airport: idAirport },
+  });
+  return data;
+}
+
+export interface UpdateOrderHotelInput {
+  id_orders_hotels?: number;
+  id_hotel: number;
+  dispo: number;
+}
+
+export interface UpdateOrderPayload {
+  id_order: number;
+  id_airport: number;
+  flight: string;
+  event: number;
+  date_in: string;
+  date_out: string;
+  hour: string;
+  hotels: UpdateOrderHotelInput[];
+  deleted_hotel_ids: number[];
+}
+
+export interface UpdateOrderResponse {
+  ok: boolean;
+  msg?: string;
+  error?: string;
+}
+
+export async function updateOrder(payload: UpdateOrderPayload): Promise<UpdateOrderResponse> {
+  const { data } = await api.post<UpdateOrderResponse>('/orders/updateOrder.php', payload);
+  return data;
+}
+
+export interface ToggleStatusResponse {
+  ok: boolean;
+  status?: string;
+  msg?: string;
+  error?: string;
+}
+
+export async function toggleOrderStatus(
+  folio: number,
+  idAirport: number,
+  re: 'reopen' | 'reclose'
+): Promise<ToggleStatusResponse> {
+  const { data } = await api.post<ToggleStatusResponse>('/orders/toggleStatus.php', {
+    id_order: folio,
+    id_airport: idAirport,
+    re,
+  });
+  return data;
+}

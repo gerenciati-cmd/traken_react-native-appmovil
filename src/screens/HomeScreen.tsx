@@ -82,7 +82,7 @@ export default function HomeScreen({ navigation }: Props) {
       label: 'Editar O.S',
       icon: 'create-outline',
       gradient: ['#d97706', '#b45309'],
-      onPress: goComingSoon('Editar O.S', 'create-outline'),
+      onPress: () => navigation.navigate('EditarList'),
     },
     {
       key: 'resumen',
