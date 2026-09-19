@@ -1,17 +1,41 @@
 import axios from 'axios';
+import { ApiEnvironment, DEFAULT_ENVIRONMENT, SITE_BASE_URLS } from '../config/environment';
 
-// Backend real de Traken en produccion. Se usa directo (no el Laragon local)
-// para que el celular funcione sin depender de que la PC este prendida ni
-// de estar en la misma WiFi.
-export const API_BASE_URL = 'https://traken.mx/op/api';
+// Backend real de Traken -- por defecto el ambiente sandbox (datos de
+// prueba, base de datos separada de la real). El ambiente activo se puede
+// cambiar en tiempo de ejecucion (ver setApiEnvironment, usado por
+// AuthContext al arrancar la app segun lo que haya guardado el usuario) sin
+// tener que recompilar nada. Se usa directo el dominio real (no el Laragon
+// local) para que el celular funcione sin depender de que la PC este
+// prendida ni de estar en la misma WiFi.
+let currentEnvironment: ApiEnvironment = DEFAULT_ENVIRONMENT;
+let siteBaseUrl = SITE_BASE_URLS[DEFAULT_ENVIRONMENT];
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${siteBaseUrl}/op/api`,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+/** Cambia a que ambiente (sandbox/production) le pega TODA la app -- las
+ * URLs absolutas que arman otras funciones de este archivo (PDF de
+ * vouchers, imagen de Delay, descarga de reportes) tambien se recalculan
+ * solas porque leen siteBaseUrl() en el momento en que se llaman. */
+export function setApiEnvironment(env: ApiEnvironment) {
+  currentEnvironment = env;
+  siteBaseUrl = SITE_BASE_URLS[env];
+  api.defaults.baseURL = `${siteBaseUrl}/op/api`;
+}
+
+export function getApiEnvironment(): ApiEnvironment {
+  return currentEnvironment;
+}
+
+function siteBase(): string {
+  return siteBaseUrl;
+}
 
 /** Se llama al iniciar sesion (o al restaurar una guardada) para que TODAS
  * las peticiones siguientes manden el token automaticamente. */
@@ -378,7 +402,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<CreateOr
  * el token como header. Aqui solo se arma la URL + el valor del header.
  */
 export function getVoucherPdfUrl(folio: number, idAirport: number): string {
-  return `https://traken.mx/op/modulos/open/voucherPdfDownload.php?id=${folio}&id_airport=${idAirport}`;
+  return `${siteBase()}/op/modulos/open/voucherPdfDownload.php?id=${folio}&id_airport=${idAirport}`;
 }
 
 export function getAuthHeader(): string | undefined {
@@ -405,11 +429,13 @@ export interface DelayFormData {
   estacion: string;
 }
 
-const DELAY_BASE_URL = 'https://traken.mx/op/modulos/delayInfo';
+function delayBase(): string {
+  return `${siteBase()}/op/modulos/delayInfo`;
+}
 
 export function getDelayImageUrl(d: DelayFormData): string {
   const qs = new URLSearchParams({ ...d, dl: '1' }).toString();
-  return `${DELAY_BASE_URL}/descargar.php?${qs}`;
+  return `${delayBase()}/descargar.php?${qs}`;
 }
 
 /** Igual que getDelayImageUrl pero SIN forzar la descarga (inline) -- para
@@ -417,7 +443,7 @@ export function getDelayImageUrl(d: DelayFormData): string {
  * generados por el servidor) directo en un <Image> como vista previa. */
 export function getDelayPreviewUrl(d: DelayFormData): string {
   const qs = new URLSearchParams({ ...d }).toString();
-  return `${DELAY_BASE_URL}/descargar.php?${qs}`;
+  return `${delayBase()}/descargar.php?${qs}`;
 }
 
 export interface SendDelayEmailResponse {
@@ -427,7 +453,7 @@ export interface SendDelayEmailResponse {
 
 export async function sendDelayEmail(to: string, d: DelayFormData): Promise<SendDelayEmailResponse> {
   const body = new URLSearchParams({ to, ...d }).toString();
-  const { data } = await axios.post<SendDelayEmailResponse>(`${DELAY_BASE_URL}/enviar_correo.php`, body, {
+  const { data } = await axios.post<SendDelayEmailResponse>(`${delayBase()}/enviar_correo.php`, body, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     timeout: 20000,
   });
@@ -837,7 +863,7 @@ export async function getReportList(folio: number, idAirport: number): Promise<R
  * nunca exigio sesion, asi que el movil lo llama directo sin token.
  */
 export function getReportDownloadUrl(script: 'paxes' | 'paxes_ep', idOrder: number, idHotel: number, idAirport: number): string {
-  return `https://traken.mx/op/modulos/reports/${script}.php?id_hotel=${idHotel}&id_order=${idOrder}&id_airport=${idAirport}`;
+  return `${siteBase()}/op/modulos/reports/${script}.php?id_hotel=${idHotel}&id_order=${idOrder}&id_airport=${idAirport}`;
 }
 
 export interface SendReportResponse {

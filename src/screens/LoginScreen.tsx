@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -17,9 +18,10 @@ import { StatusBar } from 'expo-status-bar';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { getLastEmail } from '../utils/credentials';
+import { PRODUCTION_UNLOCKED } from '../config/environment';
 
 export default function LoginScreen() {
-  const { login, isAuthenticating, error, clearError } = useAuth();
+  const { login, isAuthenticating, error, clearError, environment, setEnvironment } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -63,6 +65,17 @@ export default function LoginScreen() {
     await login(username.trim(), password);
   };
 
+  const handleTapProduction = () => {
+    if (PRODUCTION_UNLOCKED) {
+      setEnvironment('production');
+      return;
+    }
+    Alert.alert(
+      'Producción bloqueada',
+      'Esta app todavía está en pruebas contra el ambiente Sandbox (datos de prueba). El modo Producción se activará cuando se confirme que todo funciona bien.'
+    );
+  };
+
   return (
     <LinearGradient colors={gradients.hero} style={styles.flex} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}>
       <StatusBar style="light" />
@@ -79,6 +92,35 @@ export default function LoginScreen() {
               <Text style={styles.brandTitle}>TRAKEN</Text>
               <Text style={styles.brandSubtitle}>Operaciones · Ground Control</Text>
             </Animated.View>
+
+            <View style={styles.envRow}>
+              <Pressable
+                style={[styles.envPill, environment === 'sandbox' && styles.envPillActiveSandbox]}
+                onPress={() => setEnvironment('sandbox')}
+              >
+                <Ionicons name="flask-outline" size={13} color={environment === 'sandbox' ? '#06322f' : colors.textMuted} />
+                <Text style={[styles.envPillText, environment === 'sandbox' && styles.envPillTextActiveSandbox]}>
+                  Sandbox (pruebas)
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.envPill,
+                  environment === 'production' && styles.envPillActiveProd,
+                  !PRODUCTION_UNLOCKED && styles.envPillLocked,
+                ]}
+                onPress={handleTapProduction}
+              >
+                <Ionicons
+                  name={PRODUCTION_UNLOCKED ? 'globe-outline' : 'lock-closed'}
+                  size={13}
+                  color={environment === 'production' ? '#fff' : colors.textMuted}
+                />
+                <Text style={[styles.envPillText, environment === 'production' && styles.envPillTextActiveProd]}>
+                  Producción
+                </Text>
+              </Pressable>
+            </View>
 
             <Animated.View
               style={[
@@ -231,6 +273,29 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 0.5,
   },
+  envRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 22,
+  },
+  envPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  envPillActiveSandbox: { backgroundColor: colors.teal, borderColor: colors.teal },
+  envPillActiveProd: { backgroundColor: '#dc2626', borderColor: '#dc2626' },
+  envPillLocked: { opacity: 0.55 },
+  envPillText: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+  envPillTextActiveSandbox: { color: '#06322f' },
+  envPillTextActiveProd: { color: '#fff' },
   card: {
     borderRadius: radii.card,
     padding: 24,

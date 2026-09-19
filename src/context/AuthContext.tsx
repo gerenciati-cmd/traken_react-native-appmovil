@@ -1,13 +1,17 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import {
+  getApiEnvironment,
   loginRequest,
   logoutRequest,
   meRequest,
+  setApiEnvironment,
   setAuthToken,
   StationDTO,
   UserDTO,
 } from '../api/client';
+import { ApiEnvironment } from '../config/environment';
+import { getStoredEnvironment, saveStoredEnvironment } from '../utils/environmentStorage';
 import { getLastProfile, saveLastEmail, saveLastProfile } from '../utils/credentials';
 import { registerForPushNotificationsAsync } from '../utils/pushNotifications';
 
@@ -20,6 +24,8 @@ type AuthContextValue = {
   isLoading: boolean;
   isAuthenticating: boolean;
   error: string | null;
+  environment: ApiEnvironment;
+  setEnvironment: (env: ApiEnvironment) => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -34,10 +40,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [environment, setEnvironmentState] = useState<ApiEnvironment>(getApiEnvironment());
+
+  const setEnvironment = async (env: ApiEnvironment) => {
+    if (env === environment) return;
+    // Un token de sandbox no sirve contra produccion (ni al reves, son 2
+    // bases de datos separadas) -- cambiar de ambiente cierra la sesion
+    // actual para no quedar en un estado confuso a medias.
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setAuthToken(null);
+    setToken(null);
+    setUser(null);
+    setStations([]);
+    setApiEnvironment(env);
+    setEnvironmentState(env);
+    await saveStoredEnvironment(env);
+  };
 
   useEffect(() => {
     (async () => {
       try {
+        // El ambiente (sandbox/production) se resuelve ANTES que cualquier
+        // llamada al servidor -- de lo contrario el token guardado se
+        // intentaria validar contra el ambiente equivocado.
+        const storedEnv = await getStoredEnvironment();
+        setApiEnvironment(storedEnv);
+        setEnvironmentState(storedEnv);
+
         const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
         if (!storedToken) return;
 
@@ -113,8 +142,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearError = () => setError(null);
 
   const value = useMemo(
-    () => ({ token, user, stations, isLoading, isAuthenticating, error, login, logout, clearError }),
-    [token, user, stations, isLoading, isAuthenticating, error]
+    () => ({
+      token,
+      user,
+      stations,
+      isLoading,
+      isAuthenticating,
+      error,
+      environment,
+      setEnvironment,
+      login,
+      logout,
+      clearError,
+    }),
+    [token, user, stations, isLoading, isAuthenticating, error, environment]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
