@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,8 +19,8 @@ import { StatusBar } from 'expo-status-bar';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { colors, gradients, radii, shadow } from '../theme/colors';
-import { DelayFormData, getDelayImageUrl, sendDelayEmail } from '../api/client';
+import { colors, gradients, radii } from '../theme/colors';
+import { DelayFormData, getDelayImageUrl, getDelayPreviewUrl, sendDelayEmail } from '../api/client';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Delay'>;
@@ -33,41 +34,16 @@ const LANGS: { code: string; label: string }[] = [
   { code: 'pt', label: 'Português' },
 ];
 
-/** Mismos textos exactos que op/modulos/delayInfo/di_render.php (el generador
- * que usa el servidor), para que la vista previa diga lo mismo que la imagen
- * real que se descarga/envía. */
-const TEXTS: Record<string, { title: string; msg: string; flight: string; dest: string; pickup: string; departure: string; paxFrom: string }> = {
-  es: { title: 'INFORMACION SOBRE\nRETRASOS', msg: 'Estimados huéspedes, nos disculpamos por las molestias causadas por el retraso. Su bienestar es nuestra prioridad. Para ayudarle, le proporcionamos la siguiente información.', flight: 'NO. DE VUELO:', dest: 'DESTINO:', pickup: 'HORA DE RECOGIDA:', departure: 'HORA ESTIMADA DE SALIDA:', paxFrom: 'SOLO PASAJEROS DEL:' },
-  en: { title: 'DELAY\nINFORMATION', msg: 'Dear guests, we apologize for the inconvenience caused by the delay. Your well-being is our priority. To assist you, we provide the following information.', flight: 'FLIGHT NO:', dest: 'DESTINATION:', pickup: 'PICK UP TIME:', departure: 'ESTIMATED TIME DEPARTURE:', paxFrom: 'ONLY PASSENGERS FROM:' },
-  it: { title: 'INFORMAZIONI SUI\nRITARDI', msg: 'Gentili ospiti, ci scusiamo per il disagio causato dal ritardo. Il vostro benessere è la nostra priorità. Per venirvi in aiuto, vi forniamo le seguenti informazioni.', flight: 'FLIGHT NO:', dest: 'DESTINATION:', pickup: 'PICK UP TIME:', departure: 'ESTIMATED TIME DEPARTURE:', paxFrom: 'ONLY PASSENGERS FROM:' },
-  fr: { title: 'INFORMATIONS SUR\nLES RETARDS', msg: 'Chers clients, nous nous excusons pour la gêne causée par le retard. Votre bien-être est notre priorité. Pour vous aider, nous vous fournissons les informations suivantes.', flight: 'NO. DE VOL:', dest: 'DESTINATION:', pickup: 'HEURE DE PRISE EN CHARGE:', departure: 'HEURE ESTIMÉE DE DÉPART:', paxFrom: 'UNIQUEMENT PASSAGERS DU:' },
-  de: { title: 'INFORMATIONEN ZU\nVERSPÄTUNGEN', msg: 'Liebe Gäste, wir entschuldigen uns für die Unannehmlichkeiten durch die Verspätung. Ihr Wohlbefinden hat für uns Priorität. Um Ihnen zu helfen, stellen wir Ihnen folgende Informationen zur Verfügung.', flight: 'FLUGNUMMER:', dest: 'ZIEL:', pickup: 'ABHOLZEIT:', departure: 'VORAUSSICHTLICHE ABFLUGZEIT:', paxFrom: 'NUR PASSAGIERE VOM:' },
-  pt: { title: 'INFORMACOES SOBRE\nATRASOS', msg: 'Prezados hóspedes, pedimos desculpas pelo inconveniente causado pelo atraso. Seu bem-estar é nossa prioridade. Para ajudá-lo, fornecemos as seguintes informações.', flight: 'NO. DO VOO:', dest: 'DESTINO:', pickup: 'HORARIO DE BUSCA:', departure: 'HORARIO ESTIMADO DE PARTIDA:', paxFrom: 'APENAS PASSAGEIROS DE:' },
-};
-
 const CYAN = '#0891b2';
-const NAVY = '#16214d';
-const RED = '#c8102e';
-
-function formatDate(d: string): string {
-  if (!d) return '--';
-  const p = d.split('-');
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const mi = parseInt(p[1], 10) - 1;
-  if (!p[0] || !p[2] || !months[mi]) return '--';
-  return `${months[mi]} ${p[2]} ${p[0]}`;
-}
 
 /**
  * Equivalente movil del modal "Delay" (Aviso de Retraso) de
- * op/modulos/open/inicio.php. La IMAGEN real (la que se descarga o se manda
- * por correo) la sigue generando el servidor con el mismo PHP/GD que usa la
- * web (op/modulos/delayInfo/descargar.php y enviar_correo.php -- ninguno de
- * los dos exige sesion, asi que el movil los llama directo, sin tocar el
- * backend), asi que ese archivo queda IDENTICO al de la web, con el logo de
- * la aerolinea y el QR de encuesta reales. La vista previa de aqui abajo es
- * una aproximacion visual (sin el logo/QR reales) solo para que el usuario
- * vea el contenido antes de bajarlo o enviarlo.
+ * op/modulos/open/inicio.php. La imagen de vista previa (y la que se
+ * descarga o se manda por correo) es la MISMA que genera el servidor con el
+ * PHP/GD que ya usa la web (op/modulos/delayInfo/descargar.php --  no exige
+ * sesion, asi que el movil lo llama directo, sin tocar el backend): asi
+ * sale identica a la web, con el logo real de la aerolinea y el QR de
+ * encuesta de verdad, en vez de reconstruir el diseno a mano en RN.
  */
 export default function DelayScreen({ route, navigation }: Props) {
   const { folio, idAirport, folioDisplay, iata, airline, flight } = route.params;
@@ -80,13 +56,13 @@ export default function DelayScreen({ route, navigation }: Props) {
   const [departure, setDeparture] = useState('04:30');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
-  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [mail, setMail] = useState('');
   const [isSendingMail, setIsSendingMail] = useState(false);
   const [mailMsg, setMailMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  const t = TEXTS[lang] ?? TEXTS.es;
 
   const formData: DelayFormData = {
     lang,
@@ -96,17 +72,17 @@ export default function DelayScreen({ route, navigation }: Props) {
     pickup,
     departure,
     date,
-    folio: String(folio),
+    // Igual que en la web (op/modulos/open/inicio.php): el "folio" que se
+    // manda al generador es el codigo completo (ej. "APS-CUN-6780"), no solo
+    // el numero -- asi el pie del QR dice "Folio APS-CUN-6780" igual que ahi.
+    folio: folioDisplay,
     estacion: iata ?? '',
   };
 
-  const fields = [
-    { lbl: t.flight, val: (flightText || '---').toUpperCase(), bar: CYAN, color: NAVY, big: false },
-    { lbl: t.dest, val: (dest || '---').toUpperCase(), bar: NAVY, color: NAVY, big: false },
-    { lbl: t.pickup, val: `${pickup || '00:00'} hrs.`, bar: RED, color: RED, big: true },
-    { lbl: t.departure, val: `${departure || '00:00'} hrs.`, bar: RED, color: RED, big: true },
-    { lbl: t.paxFrom, val: formatDate(date), bar: NAVY, color: NAVY, big: false },
-  ];
+  const showPreview = () => {
+    setImageError(false);
+    setPreviewUrl(getDelayPreviewUrl(formData));
+  };
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -244,38 +220,38 @@ export default function DelayScreen({ route, navigation }: Props) {
               style={styles.input}
             />
 
-            <Pressable style={styles.previewBtn} onPress={() => setShowPreview(true)}>
+            <Pressable style={styles.previewBtn} onPress={showPreview}>
               <Text style={styles.previewBtnText}>Vista Previa</Text>
             </Pressable>
 
-            {showPreview && (
+            {!!previewUrl && (
               <>
-                <View style={[styles.card, shadow.card]}>
-                  <View style={[styles.cardBar, { top: 0 }]} />
-                  <Text style={styles.cardTitle}>{t.title}</Text>
-                  <Text style={styles.cardMsg}>{t.msg}</Text>
-                  <View style={styles.cardDivider} />
-                  {fields.map((f, i) => (
-                    <View key={i} style={styles.fieldRow}>
-                      <View style={[styles.fieldBar, { backgroundColor: f.bar }]} />
-                      <View>
-                        <Text style={styles.fieldLbl}>{f.lbl}</Text>
-                        <Text style={[styles.fieldVal, f.big && styles.fieldValBig, { color: f.color }]}>{f.val}</Text>
-                      </View>
+                <View style={styles.imageWrap}>
+                  {isImageLoading && (
+                    <ActivityIndicator color={CYAN} style={StyleSheet.absoluteFill} />
+                  )}
+                  {imageError ? (
+                    <View style={styles.imageErrorBox}>
+                      <Ionicons name="alert-circle-outline" size={22} color={colors.danger} />
+                      <Text style={styles.imageErrorText}>No se pudo generar la imagen. Revisa tu conexión.</Text>
+                      <Pressable style={styles.retryImageBtn} onPress={showPreview}>
+                        <Text style={styles.retryImageText}>Reintentar</Text>
+                      </Pressable>
                     </View>
-                  ))}
-                  <View style={styles.qrCard}>
-                    <Ionicons name="qr-code-outline" size={56} color={NAVY} />
-                    <Text style={styles.qrCap}>Código QR de encuesta de satisfacción (incluido en la imagen real)</Text>
-                    <Text style={styles.qrFolio}>Folio {folioDisplay}</Text>
-                  </View>
-                  {!!airlineText && <Text style={styles.cardAirline}>{airlineText.toUpperCase()}</Text>}
-                  <View style={[styles.cardBar, { bottom: 0 }]} />
+                  ) : (
+                    <Image
+                      source={{ uri: previewUrl }}
+                      style={styles.previewImage}
+                      resizeMode="contain"
+                      onLoadStart={() => setIsImageLoading(true)}
+                      onLoadEnd={() => setIsImageLoading(false)}
+                      onError={() => {
+                        setIsImageLoading(false);
+                        setImageError(true);
+                      }}
+                    />
+                  )}
                 </View>
-                <Text style={styles.previewNote}>
-                  Esta es una vista previa aproximada. La imagen que descargues o envíes por correo se genera en el
-                  servidor con el logo real de la aerolínea y el código QR funcional, igual que en la web.
-                </Text>
 
                 <Pressable style={styles.downloadBtn} onPress={handleDownload} disabled={isDownloading}>
                   {isDownloading ? (
@@ -382,35 +358,19 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   previewBtnText: { color: '#fff', fontWeight: '800', fontSize: 14.5 },
-  card: {
+  imageWrap: {
     backgroundColor: '#fff',
     borderRadius: 14,
-    padding: 20,
-    paddingTop: 24,
     marginTop: 20,
+    minHeight: 420,
+    justifyContent: 'center',
     overflow: 'hidden',
   },
-  cardBar: { position: 'absolute', left: 0, right: 0, height: 5, backgroundColor: CYAN },
-  cardTitle: { color: CYAN, fontSize: 17, fontWeight: '800', textAlign: 'center', lineHeight: 21 },
-  cardMsg: { color: '#1e293b', fontSize: 11.5, lineHeight: 17, marginTop: 12, marginBottom: 14 },
-  cardDivider: { height: 1, backgroundColor: '#e2e8f0', marginBottom: 14 },
-  fieldRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  fieldBar: { width: 4, borderRadius: 2 },
-  fieldLbl: { fontSize: 10, color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
-  fieldVal: { fontSize: 17, fontWeight: '900' },
-  fieldValBig: { fontSize: 22 },
-  qrCard: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  qrCap: { fontSize: 10.5, color: '#64748b', textAlign: 'center', marginTop: 8, lineHeight: 14 },
-  qrFolio: { fontSize: 11.5, color: CYAN, fontWeight: '800', marginTop: 6 },
-  cardAirline: { fontSize: 10.5, color: '#64748b', fontWeight: '700', marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0', textAlign: 'center', letterSpacing: 0.5 },
-  previewNote: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 10 },
+  previewImage: { width: '100%', height: 420 },
+  imageErrorBox: { alignItems: 'center', gap: 10, padding: 30 },
+  imageErrorText: { color: '#64748b', fontSize: 12.5, textAlign: 'center' },
+  retryImageBtn: { backgroundColor: CYAN, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 18 },
+  retryImageText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   downloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',

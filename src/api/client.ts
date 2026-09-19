@@ -412,6 +412,14 @@ export function getDelayImageUrl(d: DelayFormData): string {
   return `${DELAY_BASE_URL}/descargar.php?${qs}`;
 }
 
+/** Igual que getDelayImageUrl pero SIN forzar la descarga (inline) -- para
+ * mostrar la imagen real (con el logo de la aerolinea y el QR de verdad,
+ * generados por el servidor) directo en un <Image> como vista previa. */
+export function getDelayPreviewUrl(d: DelayFormData): string {
+  const qs = new URLSearchParams({ ...d }).toString();
+  return `${DELAY_BASE_URL}/descargar.php?${qs}`;
+}
+
 export interface SendDelayEmailResponse {
   ok: boolean;
   msg?: string;
