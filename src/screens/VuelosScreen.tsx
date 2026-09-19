@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ import { colors, gradients, radii, shadow } from '../theme/colors';
 import { getLiveFlights, LiveFlightAirport, LiveFlightRow } from '../api/client';
 import { getCache, saveCache } from '../utils/offlineCache';
 import { formatSavedAt } from '../utils/useOfflineLoad';
+import { buildFlightMapHtml } from '../utils/flightMapHtml';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Vuelos'>;
@@ -23,14 +25,16 @@ function faseInfo(fase: string): { color: string; label: string } {
 }
 
 /**
- * Equivalente movil (solo Lista -- la Vista Mapa con Leaflet de la web queda
- * pendiente) del radar "Vuelos en Tiempo Real" embebido en el dashboard de
- * op/modulos/inicio/inicio.php. Datos de OpenSky Network via
+ * Equivalente movil del radar "Vuelos en Tiempo Real" embebido en el
+ * dashboard de op/modulos/inicio/inicio.php: Vista Lista + Vista Mapa
+ * (Leaflet + OpenStreetMap dentro de un WebView, mismas librerias
+ * gratuitas y sin llave que usa la web). Datos de OpenSky Network via
  * op/api/orders/liveFlights.php (mismo cache en disco que usa la web).
  */
 export default function VuelosScreen({ navigation }: Props) {
   const [airports, setAirports] = useState<LiveFlightAirport[]>([]);
   const [active, setActive] = useState(0);
+  const [viewMode, setViewMode] = useState<'lista' | 'mapa'>('lista');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,13 +141,50 @@ export default function VuelosScreen({ navigation }: Props) {
               </ScrollView>
             )}
 
-            <ScrollView contentContainerStyle={styles.content}>
-              {ap?.unsupported ? (
-                <View style={styles.emptyWrap}>
-                  <Ionicons name="radio-outline" size={26} color={colors.textMuted} />
-                  <Text style={styles.emptyText}>Rastreo no disponible todavía para {ap.iata}.</Text>
-                </View>
-              ) : !ap?.live?.length ? (
+            <View style={styles.viewToggleRow}>
+              <Pressable
+                style={[styles.viewToggleBtn, viewMode === 'lista' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('lista')}
+              >
+                <Ionicons name="list" size={14} color={viewMode === 'lista' ? '#fff' : colors.textMuted} />
+                <Text style={[styles.viewToggleText, viewMode === 'lista' && styles.viewToggleTextActive]}>Lista</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.viewToggleBtn, viewMode === 'mapa' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('mapa')}
+              >
+                <Ionicons name="map" size={14} color={viewMode === 'mapa' ? '#fff' : colors.textMuted} />
+                <Text style={[styles.viewToggleText, viewMode === 'mapa' && styles.viewToggleTextActive]}>Mapa</Text>
+              </Pressable>
+            </View>
+
+            {ap?.unsupported ? (
+              <View style={styles.emptyWrap}>
+                <Ionicons name="radio-outline" size={26} color={colors.textMuted} />
+                <Text style={styles.emptyText}>Rastreo no disponible todavía para {ap.iata}.</Text>
+              </View>
+            ) : viewMode === 'mapa' ? (
+              <View style={styles.mapWrap}>
+                <WebView
+                  key={`${ap?.iata}-${ap?.updated_at}`}
+                  originWhitelist={['*']}
+                  source={{ html: buildFlightMapHtml(ap!) }}
+                  style={styles.map}
+                  onMessage={(e) => {
+                    const idx = parseInt(e.nativeEvent.data, 10);
+                    const row = ap?.live?.[idx];
+                    if (row) setDetail(row);
+                  }}
+                />
+                {!ap?.live?.length && (
+                  <View style={styles.mapEmptyOverlay}>
+                    <Text style={styles.emptyText}>Sin aeronaves detectadas cerca en este momento.</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <ScrollView contentContainerStyle={styles.content}>
+                {!ap?.live?.length ? (
                 <View style={styles.emptyWrap}>
                   <Ionicons name="airplane-outline" size={26} color={colors.textMuted} />
                   <Text style={styles.emptyText}>Sin aeronaves detectadas cerca en este momento.</Text>
@@ -191,7 +232,8 @@ export default function VuelosScreen({ navigation }: Props) {
               <Text style={styles.footNote}>
                 Posición aproximada por ADS-B (OpenSky Network). Se actualiza solo cada 90 segundos.
               </Text>
-            </ScrollView>
+              </ScrollView>
+            )}
           </>
         )}
       </SafeAreaView>
@@ -291,6 +333,35 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.teal, borderColor: colors.teal },
   tabText: { color: colors.text, fontSize: 12, fontWeight: '800' },
   tabTextActive: { color: '#06322f' },
+  viewToggleRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 10 },
+  viewToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 10,
+    paddingVertical: 8,
+  },
+  viewToggleBtnActive: { backgroundColor: '#0891b2', borderColor: '#0891b2' },
+  viewToggleText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  viewToggleTextActive: { color: '#fff' },
+  mapWrap: { flex: 1, marginHorizontal: 16, borderRadius: radii.card, overflow: 'hidden' },
+  map: { flex: 1 },
+  mapEmptyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11,17,32,0.85)',
+    padding: 20,
+  },
   content: { padding: 16, paddingBottom: 40 },
   card: {
     flexDirection: 'row',
