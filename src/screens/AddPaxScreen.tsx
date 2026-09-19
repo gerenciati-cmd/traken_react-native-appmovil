@@ -19,6 +19,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { addPax, getHotelsForOrder, HotelDTO, PaxType } from '../api/client';
 import VoucherScanButton from '../components/VoucherScanButton';
+import SelectField from '../components/SelectField';
 import { useOfflineLoad, formatSavedAt } from '../utils/useOfflineLoad';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -217,16 +218,13 @@ export default function AddPaxScreen({ route, navigation }: Props) {
               {hotels.length === 0 ? (
                 <Text style={styles.noRooms}>No hay hoteles con habitaciones disponibles.</Text>
               ) : (
-                <ChipRow>
-                  {hotels.map((h) => (
-                    <Chip
-                      key={h.id}
-                      label={`${h.name.trim()} (${h.rooms_dis})`}
-                      active={idHotel === h.id}
-                      onPress={() => setIdHotel(h.id)}
-                    />
-                  ))}
-                </ChipRow>
+                <SelectField
+                  label="Hotel"
+                  placeholder="Seleccionar hotel"
+                  options={hotels.map((h) => ({ id: h.id, label: `${h.name.trim()} (${h.rooms_dis} disp.)` }))}
+                  selectedId={idHotel}
+                  onSelect={setIdHotel}
+                />
               )}
 
               {showOcupation && (
