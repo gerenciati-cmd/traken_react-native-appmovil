@@ -40,7 +40,8 @@
           "color": "#16214d"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-sqlite"
     ]
   }
 }

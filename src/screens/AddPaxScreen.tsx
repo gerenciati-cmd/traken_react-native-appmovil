@@ -19,6 +19,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { addPax, getHotelsForOrder, HotelDTO, PaxType } from '../api/client';
 import VoucherScanButton from '../components/VoucherScanButton';
+import { useOfflineLoad, formatSavedAt } from '../utils/useOfflineLoad';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddPax'>;
@@ -70,44 +71,39 @@ export default function AddPaxScreen({ route, navigation }: Props) {
   const showOcupation = typeAirline === 'ep' || (typeAirline === 'all' && idAirport === 14);
   const showMeals = typeAirline === 'ep';
 
-  const [hotels, setHotels] = useState<HotelDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [idHotel, setIdHotel] = useState<number | null>(null);
   const [ocupation, setOcupation] = useState('');
-  const [defaultFSalida, setDefaultFSalida] = useState('');
-  const [defaultHora, setDefaultHora] = useState('');
   const [passengers, setPassengers] = useState<PassengerForm[]>([makePassenger('', '')]);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const res = await getHotelsForOrder(folio, idAirport);
-      if (res.ok) {
-        const list = (res.hotels ?? []).filter((h) => h.rooms_dis !== 0);
-        setHotels(list);
-        if (list.length === 1) setIdHotel(list[0].id);
-        const fs = res.default_date_out ? res.default_date_out.slice(0, 10) : '';
-        const hr = res.default_hour ? res.default_hour.slice(0, 5) : '';
-        setDefaultFSalida(fs);
-        setDefaultHora(hr);
-        setPassengers([makePassenger(fs, hr)]);
-      } else {
-        setLoadError(res.error ?? 'No se pudo cargar la disponibilidad.');
-      }
-    } catch (e) {
-      setLoadError('Sin conexión. Revisa tu internet e intenta de nuevo.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [folio, idAirport]);
+  const {
+    data: hotelData,
+    isLoading,
+    error: loadError,
+    offlineSince,
+    reload: load,
+  } = useOfflineLoad(
+    `add_pax_hotels_${folio}_${idAirport}`,
+    () => getHotelsForOrder(folio, idAirport),
+    (res) => ({
+      hotels: (res.hotels ?? []).filter((h) => h.rooms_dis !== 0),
+      defaultFSalida: res.default_date_out ? res.default_date_out.slice(0, 10) : '',
+      defaultHora: res.default_hour ? res.default_hour.slice(0, 5) : '',
+    }),
+    [folio, idAirport]
+  );
+
+  const hotels: HotelDTO[] = hotelData?.hotels ?? [];
+  const defaultFSalida = hotelData?.defaultFSalida ?? '';
+  const defaultHora = hotelData?.defaultHora ?? '';
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!hotelData) return;
+    if (hotelData.hotels.length === 1) setIdHotel(hotelData.hotels[0].id);
+    setPassengers([makePassenger(hotelData.defaultFSalida, hotelData.defaultHora)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotelData]);
 
   const updatePassenger = (index: number, patch: Partial<PassengerForm>) => {
     setPassengers((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -208,6 +204,15 @@ export default function AddPaxScreen({ route, navigation }: Props) {
         ) : (
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+              {offlineSince && (
+                <View style={styles.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={16} color="#fde68a" />
+                  <Text style={styles.offlineBannerText}>
+                    Sin conexión: mostrando la disponibilidad guardada el {formatSavedAt(offlineSince)}.
+                  </Text>
+                </View>
+              )}
+
               <FieldLabel text="Hotel" />
               {hotels.length === 0 ? (
                 <Text style={styles.noRooms}>No hay hoteles con habitaciones disponibles.</Text>
@@ -452,6 +457,19 @@ const styles = StyleSheet.create({
   errorText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
   retryBtn: { backgroundColor: colors.teal, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 18 },
   retryText: { color: '#06322f', fontWeight: '800', fontSize: 13 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: radii.input,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  offlineBannerText: { color: '#fde68a', fontSize: 11.5, flexShrink: 1, lineHeight: 16 },
   noRooms: { color: colors.textMuted, fontSize: 13, marginBottom: 8 },
   divider: { height: 1, backgroundColor: colors.cardBorder, marginTop: 20, marginBottom: 14 },
   sectionTitle: { color: colors.white, fontWeight: '800', fontSize: 13.5, marginBottom: 10 },

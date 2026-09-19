@@ -14,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii } from '../theme/colors';
 import { addComment, CommentDTO, getComments } from '../api/client';
+import { getCache, saveCache } from '../utils/offlineCache';
+import { formatSavedAt } from '../utils/useOfflineLoad';
 
 type Props = {
   visible: boolean;
@@ -34,19 +36,35 @@ export default function CommentsModal({ visible, onClose, idOrder, idAirport, fo
   const [text, setText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineSince, setOfflineSince] = useState<number | null>(null);
+
+  const cacheKey = `comments_${idOrder}_${idAirport}`;
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await getComments(idOrder, idAirport);
-      if (res.ok) setItems(res.items ?? []);
-      else setError(res.error ?? 'No se pudo cargar.');
+      if (res.ok) {
+        const list = res.items ?? [];
+        setItems(list);
+        setOfflineSince(null);
+        await saveCache(cacheKey, list);
+      } else {
+        setError(res.error ?? 'No se pudo cargar.');
+      }
     } catch (e) {
-      setError('Sin conexión. Revisa tu internet.');
+      const cached = await getCache<CommentDTO[]>(cacheKey);
+      if (cached) {
+        setItems(cached.data);
+        setOfflineSince(cached.savedAt);
+      } else {
+        setError('Sin conexión y sin comentarios guardados todavía.');
+      }
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idOrder, idAirport]);
 
   useEffect(() => {
@@ -94,6 +112,14 @@ export default function CommentsModal({ visible, onClose, idOrder, idAirport, fo
             </View>
 
             <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+              {offlineSince && !isLoading && (
+                <View style={styles.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={14} color="#92400e" />
+                  <Text style={styles.offlineBannerText}>
+                    Sin conexión: mostrando lo guardado el {formatSavedAt(offlineSince)}.
+                  </Text>
+                </View>
+              )}
               {isLoading ? (
                 <ActivityIndicator color={colors.teal} style={{ marginVertical: 20 }} />
               ) : error ? (
@@ -168,6 +194,18 @@ const styles = StyleSheet.create({
   list: { flexGrow: 0 },
   listContent: { padding: 18, gap: 10, minHeight: 100 },
   emptyText: { fontSize: 13, color: '#94a3b8', textAlign: 'center', paddingVertical: 12 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: 10,
+    padding: 9,
+    marginBottom: 10,
+  },
+  offlineBannerText: { color: '#92400e', fontSize: 11, flexShrink: 1, fontWeight: '600' },
   item: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 12, marginBottom: 10 },
   itemMeta: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
   itemAuthor: { color: '#0891b2', fontWeight: '700', fontSize: 11.5, flexShrink: 1 },

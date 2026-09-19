@@ -15,7 +15,11 @@ import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { AuditLogItem, AuditOrigen, getAuditLog } from '../api/client';
+import { getCache, saveCache } from '../utils/offlineCache';
+import { formatSavedAt } from '../utils/useOfflineLoad';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+
+const BITACORA_CACHE_KEY = 'bitacora_page1';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Bitacora'>;
 
@@ -61,11 +65,13 @@ export default function BitacoraScreen({ navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineSince, setOfflineSince] = useState<number | null>(null);
 
   const load = useCallback(async (pageToLoad: number, replace: boolean) => {
     if (replace) setIsLoading(true);
     else setIsLoadingMore(true);
     setError(null);
+    const isDefaultFirstPage = pageToLoad === 1 && !origen && !query.trim();
     try {
       const res = await getAuditLog({
         page: pageToLoad,
@@ -73,17 +79,38 @@ export default function BitacoraScreen({ navigation }: Props) {
         q: query.trim() || undefined,
       });
       if (res.ok) {
-        setItems((prev) => (replace ? res.items ?? [] : [...prev, ...(res.items ?? [])]));
+        const nextItems = res.items ?? [];
+        setItems((prev) => (replace ? nextItems : [...prev, ...nextItems]));
         setHasMore(!!res.has_more);
         setTotal(res.total ?? 0);
         setPage(pageToLoad);
+        setOfflineSince(null);
+        // Solo se guarda la "primera pagina, sin filtros" -- es la unica
+        // vista que tiene sentido recordar para revisarla sin señal.
+        if (isDefaultFirstPage) {
+          await saveCache(BITACORA_CACHE_KEY, { items: nextItems, total: res.total ?? 0 });
+        }
       } else {
         setError(res.error ?? 'No se pudo cargar la bitácora.');
         if (replace) setItems([]);
       }
     } catch (e) {
-      setError('Sin conexión. Revisa tu internet e intenta de nuevo.');
-      if (replace) setItems([]);
+      if (isDefaultFirstPage) {
+        const cached = await getCache<{ items: AuditLogItem[]; total: number }>(BITACORA_CACHE_KEY);
+        if (cached) {
+          setItems(cached.data.items);
+          setTotal(cached.data.total);
+          setHasMore(false);
+          setPage(1);
+          setOfflineSince(cached.savedAt);
+        } else {
+          setError('Sin conexión y sin datos guardados todavía.');
+          if (replace) setItems([]);
+        }
+      } else {
+        setError('Sin conexión. Revisa tu internet e intenta de nuevo.');
+        if (replace) setItems([]);
+      }
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -162,6 +189,16 @@ export default function BitacoraScreen({ navigation }: Props) {
             data={items}
             keyExtractor={(ev) => String(ev.id)}
             contentContainerStyle={styles.listContent}
+            ListHeaderComponent={
+              offlineSince ? (
+                <View style={styles.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={16} color="#fde68a" />
+                  <Text style={styles.offlineBannerText}>
+                    Sin conexión: mostrando lo guardado el {formatSavedAt(offlineSince)}.
+                  </Text>
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <Ionicons name="file-tray-outline" size={28} color={colors.textMuted} />
@@ -258,6 +295,19 @@ const styles = StyleSheet.create({
   errorText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
   retryBtn: { backgroundColor: colors.teal, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 18 },
   retryText: { color: '#06322f', fontWeight: '800', fontSize: 13 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: radii.input,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  offlineBannerText: { color: '#fde68a', fontSize: 11.5, flexShrink: 1, lineHeight: 16 },
   listContent: { paddingHorizontal: 16, paddingBottom: 40 },
   emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
   emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },

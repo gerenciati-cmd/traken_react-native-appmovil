@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
-import { ExistingPaxDTO, getOrderPax } from '../api/client';
+import { getOrderPax } from '../api/client';
+import { useOfflineLoad, formatSavedAt } from '../utils/useOfflineLoad';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditPaxList'>;
@@ -30,31 +31,24 @@ type Props = NativeStackScreenProps<RootStackParamList, 'EditPaxList'>;
 export default function EditPaxListScreen({ route, navigation }: Props) {
   const { folio, idAirport, folioDisplay, iata, typeAirline } = route.params;
 
-  const [items, setItems] = useState<ExistingPaxDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await getOrderPax(folio, idAirport);
-      if (res.ok) setItems(res.items ?? []);
-      else setError(res.error ?? 'No se pudo cargar la lista.');
-    } catch (e) {
-      setError('Sin conexión. Revisa tu internet e intenta de nuevo.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [folio, idAirport]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: items,
+    isLoading,
+    error,
+    offlineSince,
+    reload,
+  } = useOfflineLoad(
+    `edit_pax_list_${folio}_${idAirport}`,
+    () => getOrderPax(folio, idAirport),
+    (res) => res.items ?? [],
+    [folio, idAirport]
+  );
 
   const q = query.trim().toLowerCase();
-  const filtered = q ? items.filter((p) => p.name.toLowerCase().includes(q)) : items;
+  const list = items ?? [];
+  const filtered = q ? list.filter((p) => p.name.toLowerCase().includes(q)) : list;
 
   return (
     <LinearGradient colors={gradients.hero} style={styles.flex}>
@@ -89,12 +83,22 @@ export default function EditPaxListScreen({ route, navigation }: Props) {
           <View style={styles.errorBox}>
             <Ionicons name="alert-circle" size={18} color={colors.danger} />
             <Text style={styles.errorText}>{error}</Text>
-            <Pressable style={styles.retryBtn} onPress={load}>
+            <Pressable style={styles.retryBtn} onPress={reload}>
               <Text style={styles.retryText}>Reintentar</Text>
             </Pressable>
           </View>
         ) : (
           <FlatList
+            ListHeaderComponent={
+              offlineSince ? (
+                <View style={styles.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={16} color="#fde68a" />
+                  <Text style={styles.offlineBannerText}>
+                    Sin conexión: mostrando la lista guardada el {formatSavedAt(offlineSince)}.
+                  </Text>
+                </View>
+              ) : null
+            }
             data={filtered}
             keyExtractor={(p) => String(p.id)}
             contentContainerStyle={styles.listContent}
@@ -165,6 +169,20 @@ const styles = StyleSheet.create({
   errorText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
   retryBtn: { backgroundColor: colors.teal, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 18 },
   retryText: { color: '#06322f', fontWeight: '800', fontSize: 13 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: radii.input,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  offlineBannerText: { color: '#fde68a', fontSize: 11.5, flexShrink: 1, lineHeight: 16 },
   listContent: { paddingHorizontal: 16, paddingBottom: 30 },
   emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
   emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
