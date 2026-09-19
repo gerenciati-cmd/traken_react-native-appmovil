@@ -584,3 +584,50 @@ export async function restoreVoucherPhoto(idPax: number, idOrder: number, idAirp
   });
   return data;
 }
+
+/**
+ * Bitacora / Auditoria -- SOLO para el admin maestro (misma cuenta que
+ * admin/modulos/appUsage/inicio.php en la web). Misma tabla `auditoria` que
+ * ya usa toda la web (aps_audit()); cada evento trae 'origen' ('movil' o
+ * 'web') para poder distinguir de un vistazo que accion vino de la app.
+ */
+export type AuditOrigen = 'movil' | 'web';
+
+export interface AuditLogItem {
+  id: number;
+  fecha: string;
+  usuario: string;
+  origen: AuditOrigen;
+  modulo: string;
+  entidad: string;
+  registro_id: string;
+  referencia: string;
+  accion: string;
+  campo: string;
+  valor_anterior: string;
+  valor_nuevo: string;
+  detalle: string;
+}
+
+export interface AuditLogResponse {
+  ok: boolean;
+  items?: AuditLogItem[];
+  total?: number;
+  page?: number;
+  per_page?: number;
+  has_more?: boolean;
+  error?: string;
+}
+
+export interface AuditLogFilters {
+  page?: number;
+  modulo?: string;
+  accion?: string;
+  origen?: AuditOrigen;
+  q?: string;
+}
+
+export async function getAuditLog(filters: AuditLogFilters = {}): Promise<AuditLogResponse> {
+  const { data } = await api.get<AuditLogResponse>('/admin/auditLog.php', { params: filters });
+  return data;
+}

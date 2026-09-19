@@ -1,6 +1,5 @@
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerPushToken } from '../api/client';
 
@@ -12,21 +11,29 @@ import { registerPushToken } from '../api/client';
  * OJO Android: desde el SDK 53 de Expo, las notificaciones push REMOTAS no
  * funcionan dentro de Expo Go en Android (si en iOS) -- se necesita una
  * "development build" (compilada con EAS Build, ver eas.json) instalada
- * directo en el telefono. En Expo Go Android este registro simplemente no
- * hace nada (sin tronar la app); en una build real, si funciona.
+ * directo en el telefono. Ademas, con solo IMPORTAR expo-notifications
+ * dentro de Expo Go en Android, la libreria misma tira un error fatal
+ * ("runtime not ready"), asi que ni siquiera se puede importar de forma
+ * estatica -- por eso el import es dinamico y se salta entero en ese caso.
  */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export async function registerForPushNotificationsAsync(): Promise<void> {
+  if (isExpoGo && Platform.OS === 'android') return;
+
   try {
+    const Notifications = await import('expo-notifications');
+
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+
     if (!Device.isDevice) return; // los emuladores no reciben push real
 
     if (Platform.OS === 'android') {

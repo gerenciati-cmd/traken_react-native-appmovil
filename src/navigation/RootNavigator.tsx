@@ -15,6 +15,7 @@ import EditPaxListScreen from '../screens/EditPaxListScreen';
 import EditPaxScreen from '../screens/EditPaxScreen';
 import DelayScreen from '../screens/DelayScreen';
 import CreateOrderScreen from '../screens/CreateOrderScreen';
+import BitacoraScreen from '../screens/BitacoraScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 import type { ExistingPaxDTO } from '../api/client';
@@ -44,6 +45,7 @@ export type RootStackParamList = {
   EditPaxList: OrderMenuParams;
   EditPax: EditPaxParams;
   Delay: DelayParams;
+  Bitacora: undefined;
   ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
 };
 
@@ -79,6 +81,7 @@ export default function RootNavigator() {
             <Stack.Screen name="EditPaxList" component={EditPaxListScreen} />
             <Stack.Screen name="EditPax" component={EditPaxScreen} />
             <Stack.Screen name="Delay" component={DelayScreen} />
+            <Stack.Screen name="Bitacora" component={BitacoraScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
           </>
         ) : (

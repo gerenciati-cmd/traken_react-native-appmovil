@@ -29,9 +29,12 @@ type ModuleCard = {
  * pantalla real; los pendientes navegan a "Coming Soon" para que la
  * navegacion quede completa desde ya, sin fingir que algo esta terminado.
  */
+const ADMIN_MAESTRO_EMAIL = 'fvazconcelos@traken.mx';
+
 export default function HomeScreen({ navigation }: Props) {
   const { user, stations, logout } = useAuth();
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const esAdminMaestro = user?.email?.toLowerCase() === ADMIN_MAESTRO_EMAIL;
 
   useEffect(() => {
     getOpenOrders()
@@ -95,6 +98,17 @@ export default function HomeScreen({ navigation }: Props) {
       gradient: ['#0891b2', '#0e7490'],
       onPress: goComingSoon('Vuelos en Tiempo Real', 'paper-plane-outline'),
     },
+    ...(esAdminMaestro
+      ? [
+          {
+            key: 'bitacora',
+            label: 'Bitácora',
+            icon: 'shield-checkmark-outline' as IconName,
+            gradient: ['#334155', '#1e293b'] as readonly [string, string],
+            onPress: () => navigation.navigate('Bitacora'),
+          },
+        ]
+      : []),
   ];
 
   return (
