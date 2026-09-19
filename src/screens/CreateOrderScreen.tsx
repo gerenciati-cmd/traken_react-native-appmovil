@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import {
@@ -44,6 +45,33 @@ function todayISO(offsetDays = 0): string {
 function nowHHmm(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function toISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function toHHmm(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function parseISODate(iso: string): Date {
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+function parseHHmm(hhmm: string): Date {
+  const parts = hhmm.split(':');
+  const d = new Date();
+  d.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
+  return d;
+}
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+function formatDateDisplay(iso: string): string {
+  const d = parseISODate(iso);
+  return `${String(d.getDate()).padStart(2, '0')} ${MESES_CORTOS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /** Misma regla que op/modulos/create/valida.js: solo el día 1 del mes se
@@ -111,6 +139,17 @@ export default function CreateOrderScreen({ navigation }: Props) {
   const [blockedCode, setBlockedCode] = useState('');
   const [blockedError, setBlockedError] = useState('');
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+
+  const [activePicker, setActivePicker] = useState<'dateIn' | 'dateOut' | 'hour' | null>(null);
+
+  const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+    const target = activePicker;
+    if (Platform.OS === 'android') setActivePicker(null); // el dialogo nativo de Android se cierra solo
+    if (event.type === 'dismissed' || !selected) return;
+    if (target === 'dateIn') setDateIn(toISODate(selected));
+    else if (target === 'dateOut') setDateOut(toISODate(selected));
+    else if (target === 'hour') setHour(toHHmm(selected));
+  };
 
   const loadOptions = useCallback(async () => {
     setIsLoadingOptions(true);
@@ -428,31 +467,22 @@ export default function CreateOrderScreen({ navigation }: Props) {
               ) : null}
 
               <FieldLabel text="Fecha Entrada" />
-              <TextInput
-                value={dateIn}
-                onChangeText={setDateIn}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.placeholder}
-                style={styles.input}
-              />
+              <Pressable style={styles.pickerField} onPress={() => setActivePicker('dateIn')}>
+                <Ionicons name="calendar-outline" size={16} color={colors.teal} />
+                <Text style={styles.pickerFieldText}>{formatDateDisplay(dateIn)}</Text>
+              </Pressable>
 
               <FieldLabel text="Fecha Salida" />
-              <TextInput
-                value={dateOut}
-                onChangeText={setDateOut}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.placeholder}
-                style={styles.input}
-              />
+              <Pressable style={styles.pickerField} onPress={() => setActivePicker('dateOut')}>
+                <Ionicons name="calendar-outline" size={16} color={colors.teal} />
+                <Text style={styles.pickerFieldText}>{formatDateDisplay(dateOut)}</Text>
+              </Pressable>
 
               <FieldLabel text="Hora Pick Up" />
-              <TextInput
-                value={hour}
-                onChangeText={setHour}
-                placeholder="HH:MM"
-                placeholderTextColor={colors.placeholder}
-                style={styles.input}
-              />
+              <Pressable style={styles.pickerField} onPress={() => setActivePicker('hour')}>
+                <Ionicons name="time-outline" size={16} color={colors.teal} />
+                <Text style={styles.pickerFieldText}>{hour} hrs.</Text>
+              </Pressable>
 
               <Pressable
                 style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}
@@ -552,6 +582,40 @@ export default function CreateOrderScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      {/* Selector nativo de fecha/hora (el mismo picker del sistema operativo,
+          en vez de escribir "YYYY-MM-DD" a mano -- mas intuitivo y sin
+          errores de formato). En Android el dialogo se cierra solo al elegir;
+          en iOS se muestra como rueda dentro de una hoja con boton "Listo". */}
+      {activePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={activePicker === 'hour' ? parseHHmm(hour) : parseISODate(activePicker === 'dateIn' ? dateIn : dateOut)}
+          mode={activePicker === 'hour' ? 'time' : 'date'}
+          is24Hour
+          display="default"
+          onChange={handlePickerChange}
+        />
+      )}
+      {Platform.OS === 'ios' && (
+        <Modal visible={!!activePicker} transparent animationType="slide" onRequestClose={() => setActivePicker(null)}>
+          <View style={styles.iosPickerOverlay}>
+            <View style={styles.iosPickerSheet}>
+              <Pressable style={styles.iosPickerDone} onPress={() => setActivePicker(null)}>
+                <Text style={styles.iosPickerDoneText}>Listo</Text>
+              </Pressable>
+              {activePicker && (
+                <DateTimePicker
+                  value={activePicker === 'hour' ? parseHHmm(hour) : parseISODate(activePicker === 'dateIn' ? dateIn : dateOut)}
+                  mode={activePicker === 'hour' ? 'time' : 'date'}
+                  is24Hour
+                  display="spinner"
+                  onChange={handlePickerChange}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </LinearGradient>
   );
 }
@@ -607,6 +671,20 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
   },
+  pickerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.inputBg,
+    borderRadius: radii.input,
+    paddingHorizontal: 14,
+    height: 46,
+  },
+  pickerFieldText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  iosPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.5)' },
+  iosPickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingBottom: 20 },
+  iosPickerDone: { alignItems: 'flex-end', paddingHorizontal: 18, paddingVertical: 12 },
+  iosPickerDoneText: { color: colors.teal, fontWeight: '800', fontSize: 15 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     backgroundColor: colors.card,
