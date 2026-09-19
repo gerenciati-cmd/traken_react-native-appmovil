@@ -977,6 +977,36 @@ export interface UploadOrderFilesResponse {
   error?: string;
 }
 
+/**
+ * Historial de notificaciones -- lee push_notifications_log (la misma tabla
+ * que llena aps_push_notify_station() en cada creacion/cierre/cancelacion
+ * de O.S. y alta/edicion de pax/transporte). Sirve como bandeja aunque el
+ * push remoto todavia no funcione en este dispositivo (Expo Go en Android
+ * no lo soporta -- se necesita una build compilada).
+ */
+export interface NotificationItem {
+  id: number;
+  iata: string | null;
+  evento: string | null;
+  titulo: string | null;
+  cuerpo: string | null;
+  sent_at: string;
+}
+
+export interface NotificationsResponse {
+  ok: boolean;
+  items?: NotificationItem[];
+  total?: number;
+  page?: number;
+  has_more?: boolean;
+  error?: string;
+}
+
+export async function getNotifications(page = 1): Promise<NotificationsResponse> {
+  const { data } = await api.get<NotificationsResponse>('/notifications/list.php', { params: { page } });
+  return data;
+}
+
 export async function uploadOrderFiles(
   folio: number,
   idAirport: number,

@@ -24,6 +24,7 @@ import ReportesListScreen from '../screens/ReportesListScreen';
 import ReportePickerScreen from '../screens/ReportePickerScreen';
 import EditarListScreen from '../screens/EditarListScreen';
 import EditarOrdenScreen from '../screens/EditarOrdenScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 import type { ExistingPaxDTO } from '../api/client';
@@ -62,6 +63,7 @@ export type RootStackParamList = {
   ReportePicker: { folio: number; idAirport: number; folioDisplay: string };
   EditarList: undefined;
   EditarOrden: { folio: number; idAirport: number; folioDisplay: string };
+  Notifications: undefined;
   ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
 };
 
@@ -106,6 +108,7 @@ export default function RootNavigator() {
             <Stack.Screen name="ReportePicker" component={ReportePickerScreen} />
             <Stack.Screen name="EditarList" component={EditarListScreen} />
             <Stack.Screen name="EditarOrden" component={EditarOrdenScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
           </>
         ) : (

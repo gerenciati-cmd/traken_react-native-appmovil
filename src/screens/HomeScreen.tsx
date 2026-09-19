@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
-import { getOpenOrders } from '../api/client';
+import { getNotifications, getOpenOrders } from '../api/client';
+import { getLastSeenNotifications } from '../utils/notificationsSeen';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -34,15 +36,41 @@ const ADMIN_MAESTRO_EMAIL = 'fvazconcelos@traken.mx';
 export default function HomeScreen({ navigation }: Props) {
   const { user, stations, logout } = useAuth();
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const esAdminMaestro = user?.email?.toLowerCase() === ADMIN_MAESTRO_EMAIL;
 
-  useEffect(() => {
-    getOpenOrders()
-      .then((res) => {
-        if (res.ok) setOpenCount(res.total ?? 0);
-      })
-      .catch(() => {});
+  const loadHeader = useCallback(async () => {
+    try {
+      const res = await getOpenOrders();
+      if (res.ok) setOpenCount(res.total ?? 0);
+    } catch (e) {
+      // Silencioso: es solo el numero del badge, no bloquea el resto de Home.
+    }
+    try {
+      const [notifRes, lastSeen] = await Promise.all([getNotifications(1), getLastSeenNotifications()]);
+      const latest = notifRes.ok ? notifRes.items?.[0]?.sent_at : null;
+      const latestTs = latest ? Date.parse(latest.replace(' ', 'T')) : 0;
+      setHasUnreadNotifs(latestTs > lastSeen);
+    } catch (e) {
+      // Silencioso: el puntito de notificaciones es un extra, no critico.
+    }
   }, []);
+
+  // Se re-checa al volver a esta pantalla (ej. despues de abrir
+  // Notificaciones) para que el puntito rojo desaparezca sin tener que
+  // cerrar y reabrir la app.
+  useFocusEffect(
+    useCallback(() => {
+      loadHeader();
+    }, [loadHeader])
+  );
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadHeader();
+    setIsRefreshing(false);
+  };
 
   const goComingSoon = (title: string, icon: IconName) => () =>
     navigation.navigate('ComingSoon', { title, icon });
@@ -115,15 +143,37 @@ export default function HomeScreen({ navigation }: Props) {
     <LinearGradient colors={gradients.hero} style={styles.flex}>
       <StatusBar style="light" />
       <SafeAreaView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.teal} />
+          }
+        >
           <View style={styles.topRow}>
             <View>
               <Text style={styles.hi}>Hola, {user?.firstname}</Text>
               <Text style={styles.role}>{user?.role_name}</Text>
             </View>
-            <Pressable style={styles.logoutBtn} onPress={logout} hitSlop={8}>
-              <Ionicons name="log-out-outline" size={20} color={colors.white} />
-            </Pressable>
+            <View style={styles.topActions}>
+              <Pressable
+                style={styles.iconBtn}
+                onPress={() => navigation.navigate('Notifications')}
+                hitSlop={8}
+                android_ripple={{ color: 'rgba(255,255,255,0.15)', radius: 22, borderless: true }}
+              >
+                <Ionicons name="notifications-outline" size={20} color={colors.white} />
+                {hasUnreadNotifs && <View style={styles.unreadDot} />}
+              </Pressable>
+              <Pressable
+                style={styles.iconBtn}
+                onPress={logout}
+                hitSlop={8}
+                android_ripple={{ color: 'rgba(255,255,255,0.15)', radius: 22, borderless: true }}
+              >
+                <Ionicons name="log-out-outline" size={20} color={colors.white} />
+              </Pressable>
+            </View>
           </View>
 
           {stations.length > 0 ? (
@@ -143,7 +193,12 @@ export default function HomeScreen({ navigation }: Props) {
 
           <View style={styles.grid}>
             {cards.map((c) => (
-              <Pressable key={c.key} style={[styles.card, shadow.card]} onPress={c.onPress}>
+              <Pressable
+                key={c.key}
+                style={({ pressed }) => [styles.card, shadow.card, pressed && Platform.OS === 'ios' && styles.cardPressed]}
+                onPress={c.onPress}
+                android_ripple={{ color: 'rgba(255,255,255,0.08)' }}
+              >
                 {!!c.badge && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{c.badge}</Text>
@@ -173,7 +228,8 @@ const styles = StyleSheet.create({
   },
   hi: { color: colors.white, fontSize: 20, fontWeight: '800' },
   role: { color: colors.textMuted, fontSize: 12.5, marginTop: 2 },
-  logoutBtn: {
+  topActions: { flexDirection: 'row', gap: 10 },
+  iconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -182,6 +238,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    overflow: 'hidden',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 8,
+    right: 9,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.danger,
+    borderWidth: 1.5,
+    borderColor: colors.navy,
   },
   stationsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 22 },
   stationChip: {
@@ -208,6 +276,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  cardPressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
   iconBadge: {
     width: 52,
     height: 52,
