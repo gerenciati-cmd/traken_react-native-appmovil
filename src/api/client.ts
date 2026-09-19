@@ -944,3 +944,54 @@ export async function toggleOrderStatus(
   });
   return data;
 }
+
+/**
+ * Comprobantes (fotos/PDF) de una O.S. -- equivalente movil de
+ * op/modulos/details/up.php + insert.php + view.php.
+ */
+export interface OrderFileDTO {
+  name: string;
+  url: string;
+  type: 'image' | 'pdf';
+  size: number;
+  uploaded_at: number | null;
+}
+
+export interface OrderFilesResponse {
+  ok: boolean;
+  files?: OrderFileDTO[];
+  error?: string;
+}
+
+export async function getOrderFiles(folio: number, idAirport: number): Promise<OrderFilesResponse> {
+  const { data } = await api.get<OrderFilesResponse>('/details/files.php', {
+    params: { id: folio, id_airport: idAirport },
+  });
+  return data;
+}
+
+export interface UploadOrderFilesResponse {
+  ok: boolean;
+  subidos?: string[];
+  rechazados?: string[];
+  error?: string;
+}
+
+export async function uploadOrderFiles(
+  folio: number,
+  idAirport: number,
+  pickedFiles: { uri: string; name: string; mimeType: string }[]
+): Promise<UploadOrderFilesResponse> {
+  const form = new FormData();
+  form.append('id_order', String(folio));
+  form.append('id_airport', String(idAirport));
+  pickedFiles.forEach((f) => {
+    // @ts-expect-error React Native's FormData acepta este shape para archivos locales.
+    form.append('file[]', { uri: f.uri, name: f.name, type: f.mimeType });
+  });
+  const { data } = await api.post<UploadOrderFilesResponse>('/details/upload.php', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
+  });
+  return data;
+}
