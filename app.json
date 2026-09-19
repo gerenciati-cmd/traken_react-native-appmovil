@@ -8,9 +8,11 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#16214d",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "mx.apsholding.traken"
     },
     "android": {
+      "package": "mx.apsholding.traken",
       "adaptiveIcon": {
         "backgroundColor": "#16214d",
         "foregroundImage": "./assets/android-icon-foreground.png",
