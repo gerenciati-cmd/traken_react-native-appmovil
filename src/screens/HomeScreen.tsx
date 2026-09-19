@@ -75,7 +75,7 @@ export default function HomeScreen({ navigation }: Props) {
       label: 'Reportes',
       icon: 'bar-chart-outline',
       gradient: ['#7c3aed', '#6d28d9'],
-      onPress: goComingSoon('Reportes', 'bar-chart-outline'),
+      onPress: () => navigation.navigate('ReportesList'),
     },
     {
       key: 'editar',

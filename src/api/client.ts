@@ -803,3 +803,58 @@ export async function getOrderDetail(folio: number, idAirport: number): Promise<
   });
   return data;
 }
+
+/**
+ * Reportes -- equivalente movil de op/modulos/reports/inicio.php +
+ * report.php. La lista comparte getAllOrders(); esto es el "picker" por
+ * O.S. (un reporte Excel por hotel + uno General) y el envio por correo.
+ */
+export interface ReportHotel {
+  id_hotel: number;
+  name: string;
+  total_pax: number;
+}
+
+export interface ReportListResponse {
+  ok: boolean;
+  folio_display?: string;
+  script?: 'paxes' | 'paxes_ep';
+  hotels?: ReportHotel[];
+  total_general?: number;
+  error?: string;
+}
+
+export async function getReportList(folio: number, idAirport: number): Promise<ReportListResponse> {
+  const { data } = await api.get<ReportListResponse>('/reports/list.php', {
+    params: { id: folio, id_airport: idAirport },
+  });
+  return data;
+}
+
+/**
+ * Descarga directa del Excel -- mismo endpoint que ya usa la web
+ * (paxes.php / paxes_ep.php), que igual que descargar.php de Delay Info
+ * nunca exigio sesion, asi que el movil lo llama directo sin token.
+ */
+export function getReportDownloadUrl(script: 'paxes' | 'paxes_ep', idOrder: number, idHotel: number, idAirport: number): string {
+  return `https://traken.mx/op/modulos/reports/${script}.php?id_hotel=${idHotel}&id_order=${idOrder}&id_airport=${idAirport}`;
+}
+
+export interface SendReportResponse {
+  ok: boolean;
+  msg?: string;
+  error?: string;
+}
+
+export async function sendReportByEmail(payload: {
+  id_order: number;
+  id_hotel: number;
+  id_airport: number;
+  email: string;
+  script: 'paxes' | 'paxes_ep';
+}): Promise<SendReportResponse> {
+  const { data } = await api.post<SendReportResponse>('/reports/sendReport.php', payload, {
+    timeout: 60000,
+  });
+  return data;
+}
