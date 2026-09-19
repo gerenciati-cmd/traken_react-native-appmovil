@@ -28,6 +28,8 @@ import {
   NamedOption,
   StationOption,
 } from '../api/client';
+import SelectField from '../components/SelectField';
+import { getCache, saveCache } from '../utils/offlineCache';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateOrder'>;
@@ -35,6 +37,18 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CreateOrder'>;
 const SC_EVENT_ID = 12;
 
 type HotelRow = { key: string; idHotel: number | null; dispo: string };
+
+type CachedOptions = { stations: StationOption[]; events: NamedOption[] };
+type CachedCatalog = { airlines: NamedOption[]; hotels: NamedOption[] };
+
+function formatSavedAt(ms: number) {
+  const d = new Date(ms);
+  return (
+    d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) +
+    ' ' +
+    d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  );
+}
 
 function todayISO(offsetDays = 0): string {
   const d = new Date();
@@ -141,6 +155,8 @@ export default function CreateOrderScreen({ navigation }: Props) {
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
 
   const [activePicker, setActivePicker] = useState<'dateIn' | 'dateOut' | 'hour' | null>(null);
+  const [optionsOfflineSince, setOptionsOfflineSince] = useState<number | null>(null);
+  const [catalogOfflineSince, setCatalogOfflineSince] = useState<number | null>(null);
 
   const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
     const target = activePicker;
@@ -151,20 +167,38 @@ export default function CreateOrderScreen({ navigation }: Props) {
     else if (target === 'hour') setHour(toHHmm(selected));
   };
 
+  const OPTIONS_CACHE_KEY = 'create_order_options';
+
   const loadOptions = useCallback(async () => {
     setIsLoadingOptions(true);
     setLoadError(null);
     try {
       const res = await getCreateOrderOptions();
       if (res.ok) {
-        setStations(res.stations ?? []);
-        setEvents(res.events ?? []);
-        if ((res.stations ?? []).length === 1) setIdAirport(res.stations![0].id);
+        const nextStations = res.stations ?? [];
+        const nextEvents = res.events ?? [];
+        setStations(nextStations);
+        setEvents(nextEvents);
+        setOptionsOfflineSince(null);
+        if (nextStations.length === 1) setIdAirport(nextStations[0].id);
+        await saveCache<CachedOptions>(OPTIONS_CACHE_KEY, { stations: nextStations, events: nextEvents });
       } else {
         setLoadError(res.error ?? 'No se pudo cargar la información.');
       }
     } catch (e) {
-      setLoadError('Sin conexión. Revisa tu internet e intenta de nuevo.');
+      // Sin señal: Crear O.S. necesita conexión para guardar la orden de
+      // todos modos (el folio se asigna en el servidor), pero al menos se
+      // puede seguir viendo/revisando el formulario con los catalogos de la
+      // ultima vez que sí hubo internet, en vez de una pantalla vacía.
+      const cached = await getCache<CachedOptions>(OPTIONS_CACHE_KEY);
+      if (cached) {
+        setStations(cached.data.stations);
+        setEvents(cached.data.events);
+        setOptionsOfflineSince(cached.savedAt);
+        if (cached.data.stations.length === 1) setIdAirport(cached.data.stations[0].id);
+      } else {
+        setLoadError('Sin conexión y sin datos guardados todavía.');
+      }
     } finally {
       setIsLoadingOptions(false);
     }
@@ -176,17 +210,31 @@ export default function CreateOrderScreen({ navigation }: Props) {
 
   useEffect(() => {
     if (!idAirport) return;
+    const cacheKey = `create_order_catalog_${idAirport}`;
     setAirlineId(null);
     setHotelRows([{ key: 'h0', idHotel: null, dispo: '' }]);
     setIsLoadingCatalog(true);
+    setCatalogOfflineSince(null);
     Promise.all([getCreateOrderAirlines(idAirport), getCreateOrderHotels(idAirport)])
-      .then(([airlinesRes, hotelsRes]) => {
-        setAirlines(airlinesRes.ok ? airlinesRes.airlines ?? [] : []);
-        setHotelsCatalog(hotelsRes.ok ? hotelsRes.hotels ?? [] : []);
+      .then(async ([airlinesRes, hotelsRes]) => {
+        const nextAirlines = airlinesRes.ok ? airlinesRes.airlines ?? [] : [];
+        const nextHotels = hotelsRes.ok ? hotelsRes.hotels ?? [] : [];
+        setAirlines(nextAirlines);
+        setHotelsCatalog(nextHotels);
+        if (airlinesRes.ok && hotelsRes.ok) {
+          await saveCache<CachedCatalog>(cacheKey, { airlines: nextAirlines, hotels: nextHotels });
+        }
       })
-      .catch(() => {
-        setAirlines([]);
-        setHotelsCatalog([]);
+      .catch(async () => {
+        const cached = await getCache<CachedCatalog>(cacheKey);
+        if (cached) {
+          setAirlines(cached.data.airlines);
+          setHotelsCatalog(cached.data.hotels);
+          setCatalogOfflineSince(cached.savedAt);
+        } else {
+          setAirlines([]);
+          setHotelsCatalog([]);
+        }
       })
       .finally(() => setIsLoadingCatalog(false));
   }, [idAirport]);
@@ -380,13 +428,36 @@ export default function CreateOrderScreen({ navigation }: Props) {
         ) : (
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+              {optionsOfflineSince ? (
+                <View style={styles.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={16} color="#fde68a" />
+                  <Text style={styles.offlineBannerText}>
+                    Sin conexión: mostrando aeropuertos y eventos guardados el {formatSavedAt(optionsOfflineSince)}.
+                    Necesitas internet para poder crear la O.S.
+                  </Text>
+                </View>
+              ) : catalogOfflineSince ? (
+                <View style={styles.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={16} color="#fde68a" />
+                  <Text style={styles.offlineBannerText}>
+                    Sin conexión: mostrando aerolíneas y hoteles guardados el {formatSavedAt(catalogOfflineSince)}.
+                    Necesitas internet para poder crear la O.S.
+                  </Text>
+                </View>
+              ) : null}
+
               <FieldLabel text="Aeropuerto" />
-              <ChipRow>
-                {stations.map((s) => (
-                  <Chip key={s.id} label={s.name} active={idAirport === s.id} onPress={() => setIdAirport(s.id)} />
-                ))}
-                {stations.length === 0 && <Text style={styles.noRooms}>No tienes estaciones asignadas.</Text>}
-              </ChipRow>
+              {stations.length === 0 ? (
+                <Text style={styles.noRooms}>No tienes estaciones asignadas.</Text>
+              ) : (
+                <SelectField
+                  label="Aeropuerto"
+                  placeholder="Seleccionar aeropuerto"
+                  options={stations.map((s) => ({ id: s.id, label: s.name }))}
+                  selectedId={idAirport}
+                  onSelect={setIdAirport}
+                />
+              )}
 
               <FieldLabel text="Número de Vuelo" />
               <TextInput
@@ -399,11 +470,13 @@ export default function CreateOrderScreen({ navigation }: Props) {
               />
 
               <FieldLabel text="Tipo de Evento" />
-              <ChipRow>
-                {events.map((e) => (
-                  <Chip key={e.id} label={e.name} active={eventId === e.id} onPress={() => selectEvent(e.id)} />
-                ))}
-              </ChipRow>
+              <SelectField
+                label="Tipo de Evento"
+                placeholder="Seleccionar evento"
+                options={events.map((e) => ({ id: e.id, label: e.name }))}
+                selectedId={eventId}
+                onSelect={selectEvent}
+              />
 
               {idAirport ? (
                 isLoadingCatalog ? (
@@ -414,11 +487,13 @@ export default function CreateOrderScreen({ navigation }: Props) {
                     {airlines.length === 0 ? (
                       <Text style={styles.noRooms}>Esta estación no tiene aerolíneas activas.</Text>
                     ) : (
-                      <ChipRow>
-                        {airlines.map((a) => (
-                          <Chip key={a.id} label={a.name} active={airlineId === a.id} onPress={() => setAirlineId(a.id)} />
-                        ))}
-                      </ChipRow>
+                      <SelectField
+                        label="Aerolínea"
+                        placeholder="Seleccionar aerolínea"
+                        options={airlines.map((a) => ({ id: a.id, label: a.name }))}
+                        selectedId={airlineId}
+                        onSelect={setAirlineId}
+                      />
                     )}
 
                     <FieldLabel text="Hoteles" />
@@ -435,16 +510,13 @@ export default function CreateOrderScreen({ navigation }: Props) {
                               </Pressable>
                             )}
                           </View>
-                          <ChipRow>
-                            {hotelsCatalog.map((h) => (
-                              <Chip
-                                key={h.id}
-                                label={h.name.trim()}
-                                active={row.idHotel === h.id}
-                                onPress={() => updateHotelRow(row.key, { idHotel: h.id })}
-                              />
-                            ))}
-                          </ChipRow>
+                          <SelectField
+                            label={`Hotel ${idx + 1}`}
+                            placeholder="Seleccionar hotel"
+                            options={hotelsCatalog.map((h) => ({ id: h.id, label: h.name.trim() }))}
+                            selectedId={row.idHotel}
+                            onSelect={(id) => updateHotelRow(row.key, { idHotel: id })}
+                          />
                           <TextInput
                             value={row.dispo}
                             onChangeText={(v) => updateHotelRow(row.key, { dispo: v })}
@@ -624,18 +696,6 @@ function FieldLabel({ text }: { text: string }) {
   return <Text style={styles.fieldLabel}>{text}</Text>;
 }
 
-function ChipRow({ children }: { children: React.ReactNode }) {
-  return <View style={styles.chipRow}>{children}</View>;
-}
-
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   topBar: {
@@ -653,6 +713,19 @@ const styles = StyleSheet.create({
   errorText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
   retryBtn: { backgroundColor: colors.teal, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 18 },
   retryText: { color: '#06322f', fontWeight: '800', fontSize: 13 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: radii.input,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  offlineBannerText: { color: '#fde68a', fontSize: 11.5, flexShrink: 1, lineHeight: 16 },
   noRooms: { color: colors.textMuted, fontSize: 13, marginBottom: 8 },
   fieldLabel: {
     color: colors.textMuted,
@@ -685,18 +758,6 @@ const styles = StyleSheet.create({
   iosPickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingBottom: 20 },
   iosPickerDone: { alignItems: 'flex-end', paddingHorizontal: 18, paddingVertical: 12 },
   iosPickerDoneText: { color: colors.teal, fontWeight: '800', fontSize: 15 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  chipActive: { backgroundColor: colors.teal, borderColor: colors.teal },
-  chipText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
-  chipTextActive: { color: '#06322f' },
   hotelRow: {
     backgroundColor: colors.card,
     borderWidth: 1,
