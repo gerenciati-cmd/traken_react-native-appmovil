@@ -639,3 +639,91 @@ export async function getAuditLog(filters: AuditLogFilters = {}): Promise<AuditL
   const { data } = await api.get<AuditLogResponse>('/admin/auditLog.php', { params: filters });
   return data;
 }
+
+/**
+ * Resumen por Estacion -- equivalente movil de op/modulos/resumen/inicio.php.
+ * Solo lectura: operaciones/habitaciones/pasajeros del mes, por estacion.
+ */
+export interface ResumenRow {
+  iata: string;
+  airportName: string;
+  operaciones: number;
+  habitaciones: number;
+  adultos: number;
+  menores: number;
+  infantes: number;
+}
+
+export interface ResumenTotales {
+  operaciones: number;
+  habitaciones: number;
+  adultos: number;
+  menores: number;
+  infantes: number;
+}
+
+export interface ResumenResponse {
+  ok: boolean;
+  periodo?: string;
+  mes_label?: string;
+  es_admin_general?: boolean;
+  rows?: ResumenRow[];
+  totales?: ResumenTotales;
+  error?: string;
+}
+
+export async function getResumenEstacion(periodo?: string): Promise<ResumenResponse> {
+  const { data } = await api.get<ResumenResponse>('/reports/resumen.php', {
+    params: periodo ? { periodo } : {},
+  });
+  return data;
+}
+
+/**
+ * Vuelos en Tiempo Real -- equivalente movil (solo vista de lista; el mapa
+ * Leaflet de la web queda pendiente) de op/modulos/open/live_flights.php.
+ * Mismo cache en disco del lado del servidor (ver op/include/liveFlights.php).
+ */
+export interface LiveFlightRow {
+  icao24: string | null;
+  callsign: string;
+  airline: string | null;
+  lat: number;
+  lon: number;
+  origen: string | null;
+  alt_ft: number | null;
+  alt_m: number | null;
+  speed_kmh: number | null;
+  speed_kt: number | null;
+  vrate_ms: number | null;
+  track_deg: number | null;
+  fase: 'ascenso' | 'descenso' | 'nivel';
+  dist_km: number;
+  bearing: number | null;
+  rumbo: string | null;
+  mi_os: boolean;
+  mi_os_folio: string | null;
+}
+
+export interface LiveFlightAirport {
+  iata: string;
+  name: string;
+  unsupported?: boolean;
+  icao?: string;
+  lat?: number;
+  lon?: number;
+  live?: LiveFlightRow[];
+  updated_at?: number;
+}
+
+export interface LiveFlightsResponse {
+  ok: boolean;
+  airports?: LiveFlightAirport[];
+  server_time?: number;
+  error?: string;
+}
+
+export async function getLiveFlights(): Promise<LiveFlightsResponse> {
+  const { data } = await api.get<LiveFlightsResponse>('/orders/liveFlights.php');
+  return data;
+}

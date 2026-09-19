@@ -89,14 +89,14 @@ export default function HomeScreen({ navigation }: Props) {
       label: 'Resumen por Estación',
       icon: 'stats-chart-outline',
       gradient: ['#0891b2', '#155e75'],
-      onPress: goComingSoon('Resumen por Estación', 'stats-chart-outline'),
+      onPress: () => navigation.navigate('Resumen'),
     },
     {
       key: 'vuelos',
       label: 'Vuelos en Tiempo Real',
       icon: 'paper-plane-outline',
       gradient: ['#0891b2', '#0e7490'],
-      onPress: goComingSoon('Vuelos en Tiempo Real', 'paper-plane-outline'),
+      onPress: () => navigation.navigate('Vuelos'),
     },
     ...(esAdminMaestro
       ? [
