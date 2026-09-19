@@ -727,3 +727,79 @@ export async function getLiveFlights(): Promise<LiveFlightsResponse> {
   const { data } = await api.get<LiveFlightsResponse>('/orders/liveFlights.php');
   return data;
 }
+
+/**
+ * TODAS las ordenes del usuario (no solo abiertas) -- fuente comun para
+ * Detalles O.S., Reportes y Editar O.S. en el movil.
+ */
+export interface AnyOrderDTO {
+  id: number;
+  folio: number;
+  folio_display: string;
+  id_airport: number;
+  iata: string;
+  airline: string;
+  flight: string | null;
+  status: 'open' | 'close' | 'cancel';
+  event_name: string | null;
+  date_in: string | null;
+  type_airline: string;
+}
+
+export interface AllOrdersResponse {
+  ok: boolean;
+  total?: number;
+  total_anteriores?: number;
+  orders?: AnyOrderDTO[];
+  error?: string;
+}
+
+export async function getAllOrders(): Promise<AllOrdersResponse> {
+  const { data } = await api.get<AllOrdersResponse>('/orders/allOrders.php');
+  return data;
+}
+
+/** Detalle de una O.S. -- equivalente movil de op/modulos/details/details.php. */
+export interface OrderDetailInfo {
+  folio_display: string;
+  airline: string;
+  flight: string | null;
+  event_name: string | null;
+  status: string;
+  date_in: string | null;
+  date_out: string | null;
+  hour: string | null;
+  hotels: string[];
+}
+
+export interface OrderDetailPax {
+  id: number;
+  name: string;
+  type: string;
+  date_out: string | null;
+}
+
+export interface OrderDetailRoom {
+  id_orders_open: number;
+  updated_by: string | null;
+  pax: OrderDetailPax[];
+}
+
+export interface OrderDetailHotelGroup {
+  hotel_name: string;
+  rooms: OrderDetailRoom[];
+}
+
+export interface OrderDetailResponse {
+  ok: boolean;
+  order?: OrderDetailInfo;
+  hoteles_pax?: OrderDetailHotelGroup[];
+  error?: string;
+}
+
+export async function getOrderDetail(folio: number, idAirport: number): Promise<OrderDetailResponse> {
+  const { data } = await api.get<OrderDetailResponse>('/orders/orderDetail.php', {
+    params: { id: folio, id_airport: idAirport },
+  });
+  return data;
+}

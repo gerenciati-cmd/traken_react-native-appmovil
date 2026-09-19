@@ -18,6 +18,8 @@ import CreateOrderScreen from '../screens/CreateOrderScreen';
 import BitacoraScreen from '../screens/BitacoraScreen';
 import ResumenScreen from '../screens/ResumenScreen';
 import VuelosScreen from '../screens/VuelosScreen';
+import DetallesListScreen from '../screens/DetallesListScreen';
+import DetalleOrdenScreen from '../screens/DetalleOrdenScreen';
 import ComingSoonScreen from '../screens/ComingSoonScreen';
 import { colors } from '../theme/colors';
 import type { ExistingPaxDTO } from '../api/client';
@@ -50,6 +52,8 @@ export type RootStackParamList = {
   Bitacora: undefined;
   Resumen: undefined;
   Vuelos: undefined;
+  DetallesList: undefined;
+  DetalleOrden: { folio: number; idAirport: number; folioDisplay: string };
   ComingSoon: { title: string; icon?: ComponentProps<typeof Ionicons>['name'] };
 };
 
@@ -88,6 +92,8 @@ export default function RootNavigator() {
             <Stack.Screen name="Bitacora" component={BitacoraScreen} />
             <Stack.Screen name="Resumen" component={ResumenScreen} />
             <Stack.Screen name="Vuelos" component={VuelosScreen} />
+            <Stack.Screen name="DetallesList" component={DetallesListScreen} />
+            <Stack.Screen name="DetalleOrden" component={DetalleOrdenScreen} />
             <Stack.Screen name="ComingSoon" component={ComingSoonScreen} />
           </>
         ) : (

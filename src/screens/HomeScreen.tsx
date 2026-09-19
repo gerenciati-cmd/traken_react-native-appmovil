@@ -68,7 +68,7 @@ export default function HomeScreen({ navigation }: Props) {
       label: 'Detalles O.S',
       icon: 'albums-outline',
       gradient: ['#0891b2', '#0e7490'],
-      onPress: goComingSoon('Detalles O.S', 'albums-outline'),
+      onPress: () => navigation.navigate('DetallesList'),
     },
     {
       key: 'reportes',
