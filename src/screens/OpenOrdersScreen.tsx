@@ -211,7 +211,17 @@ export default function OpenOrdersScreen({ navigation }: Props) {
                 </Pressable>
                 <Pressable
                   style={[styles.actionBtn, styles.actionDelay]}
-                  onPress={() => navigation.navigate('ComingSoon', { title: 'Aviso de Retraso', icon: 'time-outline' })}
+                  onPress={() =>
+                    navigation.navigate('Delay', {
+                      folio: item.folio,
+                      idAirport: item.id_airport,
+                      folioDisplay: item.folio_display,
+                      iata: item.iata,
+                      typeAirline: item.type_airline,
+                      airline: item.airline,
+                      flight: item.flight,
+                    })
+                  }
                 >
                   <Ionicons name="time-outline" size={14} color="#fff" />
                   <Text style={styles.actionText}>Delay</Text>
