@@ -50,6 +50,12 @@
         "projectId": "cdb40c0b-1a6a-4a9f-a7b4-5797009678bf"
       }
     },
-    "owner": "aps-holding-1a"
+    "owner": "aps-holding-1a",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cdb40c0b-1a6a-4a9f-a7b4-5797009678bf"
+    }
   }
 }
