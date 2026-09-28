@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/raleway';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import UpdateBanner from './src/components/UpdateBanner';
 import { colors } from './src/theme/colors';
 
 function registerPwa() {
@@ -53,6 +54,7 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <RootNavigator />
+        <UpdateBanner />
       </AuthProvider>
     </SafeAreaProvider>
   );
