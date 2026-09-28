@@ -1,8 +1,7 @@
 name: Create Production Builds
 
 on:
-  push:
-    branches: ['master']
+  workflow_dispatch:
 
 jobs:
   build_android:
