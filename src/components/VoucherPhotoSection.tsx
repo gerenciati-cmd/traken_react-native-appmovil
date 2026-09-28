@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radii } from '../theme/colors';
 import { removeVoucherPhoto, restoreVoucherPhoto, uploadVoucherPhoto, logVoucherScan } from '../api/client';
 import { iniciarEscaneoVoucher, escanearConOcrLocal, ScanStage } from '../utils/voucherScan';
+import { resizeForUpload } from '../utils/imageResize';
 
 type Props = {
   idPax: number;
@@ -46,7 +47,9 @@ export default function VoucherPhotoSection({ idPax, idOrder, idAirport, initial
         return null;
       }
       const res = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false });
-      return res.canceled ? null : res.assets[0].uri;
+      if (res.canceled) return null;
+      const a = res.assets[0];
+      return resizeForUpload(a.uri, a.width, a.height);
     } else {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
@@ -54,7 +57,9 @@ export default function VoucherPhotoSection({ idPax, idOrder, idAirport, initial
         return null;
       }
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-      return res.canceled ? null : res.assets[0].uri;
+      if (res.canceled) return null;
+      const a = res.assets[0];
+      return resizeForUpload(a.uri, a.width, a.height);
     }
   };
 

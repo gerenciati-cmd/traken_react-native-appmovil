@@ -21,6 +21,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, gradients, radii, shadow } from '../theme/colors';
 import { getOrderDetail, getOrderFiles, OrderFileDTO, uploadOrderFiles } from '../api/client';
 import { useOfflineLoad, formatSavedAt } from '../utils/useOfflineLoad';
+import { resizeForUpload } from '../utils/imageResize';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DetalleOrden'>;
@@ -94,7 +95,8 @@ export default function DetalleOrdenScreen({ route, navigation }: Props) {
     const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (res.canceled) return;
     const a = res.assets[0];
-    await doUpload([{ uri: a.uri, name: a.fileName ?? `foto_${Date.now()}.jpg`, mimeType: a.mimeType ?? 'image/jpeg' }]);
+    const uri = await resizeForUpload(a.uri, a.width, a.height);
+    await doUpload([{ uri, name: a.fileName ?? `foto_${Date.now()}.jpg`, mimeType: a.mimeType ?? 'image/jpeg' }]);
   };
 
   const handlePickImages = async () => {
@@ -102,9 +104,14 @@ export default function DetalleOrdenScreen({ route, navigation }: Props) {
     if (!perm.granted) { Alert.alert('Permiso necesario', 'Activa el permiso de galería.'); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsMultipleSelection: true });
     if (res.canceled) return;
-    await doUpload(
-      res.assets.map((a, i) => ({ uri: a.uri, name: a.fileName ?? `foto_${Date.now()}_${i}.jpg`, mimeType: a.mimeType ?? 'image/jpeg' }))
+    const files = await Promise.all(
+      res.assets.map(async (a, i) => ({
+        uri: await resizeForUpload(a.uri, a.width, a.height),
+        name: a.fileName ?? `foto_${Date.now()}_${i}.jpg`,
+        mimeType: a.mimeType ?? 'image/jpeg',
+      }))
     );
+    await doUpload(files);
   };
 
   const handlePickPdf = async () => {
