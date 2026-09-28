@@ -41,20 +41,28 @@ export default function HomeScreen({ navigation }: Props) {
   const esAdminMaestro = user?.email?.toLowerCase() === ADMIN_MAESTRO_EMAIL;
 
   const loadHeader = useCallback(async () => {
-    try {
-      const res = await getOpenOrders();
-      if (res.ok) setOpenCount(res.total ?? 0);
-    } catch (e) {
-      // Silencioso: es solo el numero del badge, no bloquea el resto de Home.
-    }
-    try {
-      const [notifRes, lastSeen] = await Promise.all([getNotifications(1), getLastSeenNotifications()]);
-      const latest = notifRes.ok ? notifRes.items?.[0]?.sent_at : null;
-      const latestTs = latest ? Date.parse(latest.replace(' ', 'T')) : 0;
-      setHasUnreadNotifs(latestTs > lastSeen);
-    } catch (e) {
-      // Silencioso: el puntito de notificaciones es un extra, no critico.
-    }
+    // Las 2 cargas del header son independientes entre si (el contador de
+    // abiertas y el puntito de notificaciones) -- se disparan en paralelo en
+    // vez de una tras otra para que el header quede listo mas rapido.
+    const openOrders = (async () => {
+      try {
+        const res = await getOpenOrders();
+        if (res.ok) setOpenCount(res.total ?? 0);
+      } catch (e) {
+        // Silencioso: es solo el numero del badge, no bloquea el resto de Home.
+      }
+    })();
+    const notifs = (async () => {
+      try {
+        const [notifRes, lastSeen] = await Promise.all([getNotifications(1), getLastSeenNotifications()]);
+        const latest = notifRes.ok ? notifRes.items?.[0]?.sent_at : null;
+        const latestTs = latest ? Date.parse(latest.replace(' ', 'T')) : 0;
+        setHasUnreadNotifs(latestTs > lastSeen);
+      } catch (e) {
+        // Silencioso: el puntito de notificaciones es un extra, no critico.
+      }
+    })();
+    await Promise.all([openOrders, notifs]);
   }, []);
 
   // Se re-checa al volver a esta pantalla (ej. despues de abrir

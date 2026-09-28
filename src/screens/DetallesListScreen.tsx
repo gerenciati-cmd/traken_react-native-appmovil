@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,13 +45,17 @@ export default function DetallesListScreen({ navigation }: Props) {
   const totalAnteriores = result?.totalAnteriores ?? 0;
 
   const q = query.trim().toLowerCase();
-  const filtered = q
-    ? orders.filter((o) =>
-        `${o.folio_display} ${o.airline} ${o.flight ?? ''} ${o.iata} ${statusInfo(o.status).label}`
-          .toLowerCase()
-          .includes(q)
-      )
-    : orders;
+  const filtered = useMemo(
+    () =>
+      q
+        ? orders.filter((o) =>
+            `${o.folio_display} ${o.airline} ${o.flight ?? ''} ${o.iata} ${statusInfo(o.status).label}`
+              .toLowerCase()
+              .includes(q)
+          )
+        : orders,
+    [orders, q]
+  );
 
   return (
     <LinearGradient colors={gradients.hero} style={styles.flex}>
@@ -95,6 +99,10 @@ export default function DetallesListScreen({ navigation }: Props) {
             data={filtered}
             keyExtractor={(o) => String(o.id)}
             contentContainerStyle={styles.listContent}
+            removeClippedSubviews
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            initialNumToRender={10}
             ListHeaderComponent={
               offlineSince ? (
                 <View style={styles.offlineBanner}>

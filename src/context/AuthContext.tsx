@@ -62,12 +62,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // El ambiente (sandbox/production) se resuelve ANTES que cualquier
         // llamada al servidor -- de lo contrario el token guardado se
-        // intentaria validar contra el ambiente equivocado.
-        const storedEnv = await getStoredEnvironment();
+        // intentaria validar contra el ambiente equivocado. La lectura del
+        // token guardado no depende del ambiente, asi que se piden ambas
+        // cosas al almacenamiento del telefono en paralelo en vez de una
+        // tras otra (arranque un poco mas rapido).
+        const [storedEnv, storedToken] = await Promise.all([
+          getStoredEnvironment(),
+          SecureStore.getItemAsync(TOKEN_KEY),
+        ]);
         setApiEnvironment(storedEnv);
         setEnvironmentState(storedEnv);
 
-        const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
         if (!storedToken) return;
 
         // No basta con confiar en el token guardado: pudo vencer o haber

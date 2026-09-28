@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -81,11 +81,15 @@ export default function OpenOrdersScreen({ navigation }: Props) {
   }, [load]);
 
   const q = query.trim().toLowerCase();
-  const filtered = q
-    ? orders.filter((o) =>
-        `${o.folio_display} ${o.airline} ${o.flight ?? ''} ${o.iata}`.toLowerCase().includes(q)
-      )
-    : orders;
+  const filtered = useMemo(
+    () =>
+      q
+        ? orders.filter((o) =>
+            `${o.folio_display} ${o.airline} ${o.flight ?? ''} ${o.iata}`.toLowerCase().includes(q)
+          )
+        : orders,
+    [orders, q]
+  );
 
   return (
     <LinearGradient colors={gradients.hero} style={styles.flex}>
@@ -133,6 +137,10 @@ export default function OpenOrdersScreen({ navigation }: Props) {
           data={filtered}
           keyExtractor={(o) => String(o.id)}
           contentContainerStyle={styles.listContent}
+          removeClippedSubviews
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          initialNumToRender={10}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={() => load(true)} tintColor={colors.teal} />
           }
